@@ -1,4 +1,4 @@
-package me.thetealviper.commandshop;
+package me.thetealviper.commandshop.integrations;
 
 import java.util.List;
 import java.util.Locale;
@@ -7,14 +7,15 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
-import me.thetealviper.commandshop.CommandShop.Price;
-import me.thetealviper.commandshop.CommandShop.ShopStat;
+import me.thetealviper.commandshop.api.CommandShopApi;
+import me.thetealviper.commandshop.model.Price;
+import me.thetealviper.commandshop.model.ShopStat;
 
 public final class CommandShopPlaceholderExpansion extends PlaceholderExpansion {
-    private final CommandShop plugin;
+    private final CommandShopApi plugin;
     private final String identifier;
 
-    public CommandShopPlaceholderExpansion(CommandShop plugin, String identifier) {
+    public CommandShopPlaceholderExpansion(CommandShopApi plugin, String identifier) {
         this.plugin = plugin;
         this.identifier = identifier;
     }

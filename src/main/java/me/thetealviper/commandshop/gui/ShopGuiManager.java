@@ -1,4 +1,4 @@
-package me.thetealviper.commandshop;
+package me.thetealviper.commandshop.gui;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,18 +29,20 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import me.thetealviper.commandshop.CommandShop.Price;
-import me.thetealviper.commandshop.CommandShop.SellQuote;
+import me.thetealviper.commandshop.api.CommandShopApi;
+import me.thetealviper.commandshop.model.Price;
+import me.thetealviper.commandshop.model.SellQuote;
+import me.thetealviper.commandshop.shop.ItemCategoryClassifier;
 
 public final class ShopGuiManager implements Listener {
     private static final int PAGE_SIZE = 45;
     private static final int[] BUNDLE_SLOTS = {20, 21, 22, 23, 24};
 
-    private final CommandShop plugin;
+    private final CommandShopApi plugin;
     private final List<GroupDefinition> materialGroups = new ArrayList<>();
     private final Map<BuyCategory, Set<Material>> overrides = new EnumMap<>(BuyCategory.class);
 
-    public ShopGuiManager(CommandShop plugin) {
+    public ShopGuiManager(CommandShopApi plugin) {
         this.plugin = plugin;
         loadCategoryOverrides();
         loadMaterialGroups();

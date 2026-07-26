@@ -1,4 +1,4 @@
-package me.thetealviper.commandshop;
+package me.thetealviper.commandshop.platform;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -12,6 +12,8 @@ import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.Plugin;
 
+import me.thetealviper.commandshop.api.CommandShopApi;
+
 /**
  * Repairs command-map entries left behind by dynamic plugin managers.
  *
@@ -20,11 +22,11 @@ import org.bukkit.plugin.Plugin;
  * replaces commands owned by a disabled CommandShop/ScoreboardChatShop
  * instance and will never take a command from an enabled plugin.
  */
-final class DynamicReloadSupport {
+public final class DynamicReloadSupport {
     private DynamicReloadSupport() {
     }
 
-    static void restoreCommands(CommandShop plugin) {
+    public static void restoreCommands(CommandShopApi plugin) {
         CommandMap commandMap = commandMap(plugin);
         Map<String, Command> knownCommands = knownCommands(plugin, commandMap);
         if (commandMap == null || knownCommands == null) {
@@ -69,7 +71,7 @@ final class DynamicReloadSupport {
         }
     }
 
-    static void unregisterCommands(CommandShop plugin) {
+    public static void unregisterCommands(CommandShopApi plugin) {
         CommandMap commandMap = commandMap(plugin);
         Map<String, Command> knownCommands = knownCommands(plugin, commandMap);
         if (commandMap == null || knownCommands == null) {
@@ -108,7 +110,7 @@ final class DynamicReloadSupport {
         knownCommands.entrySet().removeIf(entry -> entry.getValue() == target);
     }
 
-    private static CommandMap commandMap(CommandShop plugin) {
+    private static CommandMap commandMap(CommandShopApi plugin) {
         try {
             Method method = plugin.getServer().getClass().getMethod("getCommandMap");
             Object value = method.invoke(plugin.getServer());
@@ -121,7 +123,7 @@ final class DynamicReloadSupport {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Command> knownCommands(CommandShop plugin, CommandMap commandMap) {
+    private static Map<String, Command> knownCommands(CommandShopApi plugin, CommandMap commandMap) {
         if (commandMap == null) {
             return null;
         }
@@ -153,7 +155,7 @@ final class DynamicReloadSupport {
         return null;
     }
 
-    private static void syncCommands(CommandShop plugin) {
+    private static void syncCommands(CommandShopApi plugin) {
         try {
             Method method = plugin.getServer().getClass().getMethod("syncCommands");
             method.invoke(plugin.getServer());

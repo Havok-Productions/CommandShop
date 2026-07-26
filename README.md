@@ -8,6 +8,10 @@ A shop plugin that allows commands to be used, and supports an organized GUI.
 
 mvn clean install
 
+## Architecture
+
+See `docs/ARCHITECTURE.md` for package ownership and dependency rules.
+
 ## Automatic item categories
 
 The buy GUI classifies every available Bukkit material. Food, crops, seeds,

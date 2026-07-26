@@ -1,4 +1,4 @@
-package me.thetealviper.commandshop;
+package me.thetealviper.commandshop.shop;
 
 import java.util.EnumMap;
 import java.util.Map;

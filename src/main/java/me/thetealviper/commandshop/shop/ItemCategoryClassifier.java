@@ -1,4 +1,4 @@
-package me.thetealviper.commandshop;
+package me.thetealviper.commandshop.shop;
 
 import java.util.Set;
 
@@ -9,8 +9,8 @@ import org.bukkit.Material;
  * conventions. Name-based checks deliberately allow newer Minecraft materials to
  * be categorized without requiring a plugin update for every server release.
  */
-final class ItemCategoryClassifier {
-    enum Category {
+public final class ItemCategoryClassifier {
+    public enum Category {
         FOOD,
         MATERIALS,
         ORES,
@@ -53,7 +53,7 @@ final class ItemCategoryClassifier {
     private ItemCategoryClassifier() {
     }
 
-    static Category classify(Material material) {
+    public static Category classify(Material material) {
         String name = material.name();
         if (isFoodOrCrop(material, name)) {
             return Category.FOOD;

@@ -1,4 +1,4 @@
-package me.thetealviper.commandshop;
+package me.thetealviper.commandshop.commands;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,12 +16,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.StringUtil;
 
-import me.thetealviper.commandshop.CommandShop.Price;
+import me.thetealviper.commandshop.api.CommandShopApi;
+import me.thetealviper.commandshop.model.Price;
 
 public final class CommandCompleter implements TabCompleter {
-    private final CommandShop plugin;
+    private final CommandShopApi plugin;
 
-    public CommandCompleter(CommandShop plugin) {
+    public CommandCompleter(CommandShopApi plugin) {
         this.plugin = plugin;
     }
 
