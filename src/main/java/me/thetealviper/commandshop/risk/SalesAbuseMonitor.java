@@ -13,7 +13,8 @@ public final class SalesAbuseMonitor {
     private static final double EPSILON = 0.0000001D;
 
     public Evaluation evaluate(List<String> persistedEntries, long now,
-            long saleAmount, double saleRevenue, double saleRatio,
+            long saleAmount, double saleRevenue,
+            double configuredSellUnitPrice, double saleToAcquisitionRatio,
             Thresholds thresholds) {
         long cutoff = now - TimeUnit.MINUTES.toMillis(thresholds.windowMinutes());
         List<SaleEntry> entries = new ArrayList<>();
@@ -34,24 +35,32 @@ public final class SalesAbuseMonitor {
             totalAmount += entry.amount();
             totalRevenue += entry.revenue();
         }
+        double revenueToSalePriceRatio =
+                Double.isFinite(configuredSellUnitPrice)
+                && configuredSellUnitPrice > 0.0D
+                ? totalRevenue / configuredSellUnitPrice : 0.0D;
         boolean flag = totalRevenue + EPSILON >= thresholds.minimumRevenue()
-                && totalAmount >= thresholds.minimumItems()
-                && saleRatio + EPSILON >= thresholds.minimumSaleRatio();
+                && revenueToSalePriceRatio + EPSILON
+                >= thresholds.minimumRevenueToSalePriceRatio()
+                && saleToAcquisitionRatio + EPSILON
+                >= thresholds.minimumProfitRatio();
         return new Evaluation(
-                List.copyOf(encoded), totalAmount, totalRevenue, saleRatio, flag);
+                List.copyOf(encoded), totalAmount, totalRevenue,
+                revenueToSalePriceRatio, saleToAcquisitionRatio, flag);
     }
 
     public record Thresholds(
             int windowMinutes,
             double minimumRevenue,
-            long minimumItems,
-            double minimumSaleRatio) {
+            double minimumRevenueToSalePriceRatio,
+            double minimumProfitRatio) {
 
         public Thresholds {
             windowMinutes = Math.max(1, windowMinutes);
             minimumRevenue = Math.max(0.0D, minimumRevenue);
-            minimumItems = Math.max(1L, minimumItems);
-            minimumSaleRatio = Math.max(1.0D, minimumSaleRatio);
+            minimumRevenueToSalePriceRatio =
+                    Math.max(1.0D, minimumRevenueToSalePriceRatio);
+            minimumProfitRatio = Math.max(1.0D, minimumProfitRatio);
         }
     }
 
@@ -59,7 +68,8 @@ public final class SalesAbuseMonitor {
             List<String> persistedEntries,
             long totalAmount,
             double totalRevenue,
-            double saleRatio,
+            double revenueToSalePriceRatio,
+            double saleToAcquisitionRatio,
             boolean shouldFlag) {
     }
 

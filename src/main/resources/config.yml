@@ -14,15 +14,18 @@ Price_History:
   Max_Entries: 10000
 
 # A player is only automatically flagged when one material crosses every
-# threshold inside the rolling window. The sale ratio compares its sell
-# unit price with the cheapest fully priced direct-buy or recursive crafting
-# path. Materials without a known acquisition cost never trigger a flag.
+# threshold inside the rolling window. Revenue-to-sale-price divides the
+# money earned by that item's configured sell unit price. For example,
+# earning $5,000 from a $2,500 unit sale price is 2.0. The profit ratio separately
+# compares the sell unit price with the cheapest fully priced direct-buy or
+# recursive crafting path. Materials without a known acquisition cost never
+# trigger a flag.
 Abuse_Detection:
   Enabled: true
   Window_Minutes: 30
   Minimum_Item_Revenue: 5000.0
-  Minimum_Items: 64
-  Minimum_Sale_Ratio: 1.10
+  Minimum_Revenue_To_Sale_Price_Ratio: 2.0
+  Minimum_Profit_Ratio: 1.10
 
 Aliases:
   COBBLESTONE:

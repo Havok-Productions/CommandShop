@@ -61,10 +61,16 @@ configured price.
 
 Sales are tracked per player and per material in a configurable rolling window.
 By default, a player is flagged only when one material produces at least
-`$5,000` and 64 sold items within 30 minutes **and** its sell price is at least
-`1.10x` the cheapest known direct-buy or recursive crafting cost. If no complete
-acquisition price is known, that material cannot automatically flag a player.
-This prevents normal high-value sales alone from triggering the detector.
+`$5,000` within 30 minutes, the money earned is at least `2.0x` that item's
+configured sell unit price, **and** its sell unit price is at least `1.10x`
+the cheapest known direct-buy or recursive crafting cost.
+
+For example, earning `$5,000` from beacons configured to sell for `$2,500`
+produces a `2.0x` revenue-to-sale-price ratio. There is no fixed item-count
+requirement. If no complete acquisition price is known, that material cannot
+automatically flag a player. This prevents a single ordinary high-value sale
+or high revenue without a suspicious profit margin from triggering the
+detector.
 
 A newly flagged player receives an explanation, staff with
 `commandshop.notify` receive the evidence, and the flag is saved in `stats.db`.

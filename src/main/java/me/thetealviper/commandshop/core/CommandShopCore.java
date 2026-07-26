@@ -999,7 +999,8 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                     "item", displayName(newFlag.material()),
                     "revenue", formatMoney(newFlag.revenue()),
                     "amount", Long.toString(newFlag.amount()),
-                    "ratio", formatRatio(newFlag.ratio()),
+                    "sales_ratio", formatRatio(newFlag.revenueToSalePriceRatio()),
+                    "profit_ratio", formatRatio(newFlag.profitRatio()),
                     "minutes", Integer.toString(newFlag.windowMinutes())));
         }
     }
@@ -1016,17 +1017,21 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         long now = System.currentTimeMillis();
         String path = base + ".Abuse.Windows." + material.name();
         Price sellPrice = sellPrices.get(material);
-        double ratio = recipeCatalog == null
+        double profitRatio = recipeCatalog == null
                 ? 0.0D : recipeCatalog.saleRatio(material, sellPrice);
+        double configuredSellUnitPrice = sellPrice == null
+                ? 0.0D : sellPrice.price() / sellPrice.amount();
         SalesAbuseMonitor.Thresholds thresholds = new SalesAbuseMonitor.Thresholds(
                 windowMinutes,
                 getConfig().getDouble(
                         "Abuse_Detection.Minimum_Item_Revenue", 5000.0D),
-                getConfig().getLong("Abuse_Detection.Minimum_Items", 64L),
                 getConfig().getDouble(
-                        "Abuse_Detection.Minimum_Sale_Ratio", 1.10D));
+                        "Abuse_Detection.Minimum_Revenue_To_Sale_Price_Ratio", 2.0D),
+                getConfig().getDouble(
+                        "Abuse_Detection.Minimum_Profit_Ratio", 1.10D));
         SalesAbuseMonitor.Evaluation evaluation = abuseMonitor.evaluate(
-                stats.getStringList(path), now, amount, money, ratio, thresholds);
+                stats.getStringList(path), now, amount, money,
+                configuredSellUnitPrice, profitRatio, thresholds);
         stats.set(path, evaluation.persistedEntries());
         if (!evaluation.shouldFlag()) {
             return null;
@@ -1037,10 +1042,14 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         stats.set(base + ".Abuse.Material", material.name());
         stats.set(base + ".Abuse.Window_Revenue", evaluation.totalRevenue());
         stats.set(base + ".Abuse.Window_Amount", evaluation.totalAmount());
-        stats.set(base + ".Abuse.Sale_Ratio", ratio);
+        stats.set(base + ".Abuse.Revenue_To_Sale_Price_Ratio",
+                evaluation.revenueToSalePriceRatio());
+        stats.set(base + ".Abuse.Profit_Ratio", profitRatio);
+        stats.set(base + ".Abuse.Sale_Ratio", profitRatio);
         stats.set(base + ".Abuse.Window_Minutes", windowMinutes);
         return new AbuseFlag(material, evaluation.totalAmount(),
-                evaluation.totalRevenue(), ratio, windowMinutes);
+                evaluation.totalRevenue(),
+                evaluation.revenueToSalePriceRatio(), profitRatio, windowMinutes);
     }
 
     private boolean isShopBlocked(Player player, boolean notify) {
@@ -1134,7 +1143,8 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         boolean flagged;
         Material flaggedMaterial = Material.BARRIER;
         double flaggedRevenue = 0.0D;
-        double flaggedRatio = 0.0D;
+        double flaggedSalesRatio = 0.0D;
+        double flaggedProfitRatio = 0.0D;
         synchronized (statsLock) {
             String base = "Players." + playerKey;
             display = stats.getString(base + ".Name", requestedName);
@@ -1145,14 +1155,18 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 flaggedMaterial = storedMaterial;
             }
             flaggedRevenue = stats.getDouble(base + ".Abuse.Window_Revenue");
-            flaggedRatio = stats.getDouble(base + ".Abuse.Sale_Ratio");
+            flaggedSalesRatio = stats.getDouble(
+                    base + ".Abuse.Revenue_To_Sale_Price_Ratio");
+            flaggedProfitRatio = stats.getDouble(base + ".Abuse.Profit_Ratio",
+                    stats.getDouble(base + ".Abuse.Sale_Ratio"));
         }
         send(sender, "Inspect_Header", Map.of("player", display));
         if (flagged) {
             send(sender, "Inspect_Flagged", Map.of(
                     "item", displayName(flaggedMaterial),
                     "revenue", formatMoney(flaggedRevenue),
-                    "ratio", formatRatio(flaggedRatio)));
+                    "sales_ratio", formatRatio(flaggedSalesRatio),
+                    "profit_ratio", formatRatio(flaggedProfitRatio)));
         }
         send(sender, "Inspect_SellHeader", Map.of());
         List<ShopStat> sold = topStats(playerKey, "Sell", 5);
@@ -1405,7 +1419,8 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     }
 
     private record AbuseFlag(Material material, long amount, double revenue,
-            double ratio, int windowMinutes) {
+            double revenueToSalePriceRatio, double profitRatio,
+            int windowMinutes) {
     }
 
     private Integer parsePositiveInt(String value) {
