@@ -35,19 +35,6 @@ import me.thetealviper.commandshop.CommandShop.SellQuote;
 public final class ShopGuiManager implements Listener {
     private static final int PAGE_SIZE = 45;
     private static final int[] BUNDLE_SLOTS = {20, 21, 22, 23, 24};
-    private static final Set<String> FOOD_AND_CROPS = Set.of(
-            "WHEAT", "CARROT", "POTATO", "BEETROOT", "BEETROOT_SEEDS", "WHEAT_SEEDS",
-            "MELON_SEEDS", "PUMPKIN_SEEDS", "COCOA_BEANS", "SUGAR_CANE", "CACTUS",
-            "NETHER_WART", "BAMBOO", "KELP", "DRIED_KELP", "SWEET_BERRIES",
-            "GLOW_BERRIES", "CHORUS_FRUIT", "PUMPKIN", "MELON", "APPLE");
-    private static final Set<String> ORE_PRODUCTS = Set.of(
-            "COAL", "CHARCOAL", "RAW_IRON", "RAW_GOLD", "RAW_COPPER", "IRON_INGOT",
-            "GOLD_INGOT", "COPPER_INGOT", "DIAMOND", "EMERALD", "LAPIS_LAZULI",
-            "REDSTONE", "QUARTZ", "AMETHYST_SHARD", "NETHERITE_SCRAP", "NETHERITE_INGOT");
-    private static final Set<String> BASIC_MATERIALS = Set.of(
-            "STONE", "COBBLESTONE", "DIRT", "COARSE_DIRT", "ROOTED_DIRT", "GRAVEL",
-            "SAND", "RED_SAND", "CLAY", "BRICK", "BRICKS", "GLASS", "OBSIDIAN",
-            "CRYING_OBSIDIAN", "NETHERRACK", "END_STONE", "PRISMARINE", "BLACKSTONE");
 
     private final CommandShop plugin;
     private final List<GroupDefinition> materialGroups = new ArrayList<>();
@@ -493,27 +480,12 @@ public final class ShopGuiManager implements Listener {
                 return category;
             }
         }
-        String name = material.name();
-        if (material.isEdible() || FOOD_AND_CROPS.contains(name)
-                || name.endsWith("_SEEDS") || name.endsWith("_SAPLING")) {
-            return BuyCategory.FOOD;
-        }
-        if (name.endsWith("_ORE") || ORE_PRODUCTS.contains(name)) {
-            return BuyCategory.ORES;
-        }
-        if (BASIC_MATERIALS.contains(name) || matchesMaterialGroup(material)) {
-            return BuyCategory.MATERIALS;
-        }
-        return BuyCategory.OTHER;
-    }
-
-    private boolean matchesMaterialGroup(Material material) {
-        for (GroupDefinition group : materialGroups) {
-            if (group.matches(material)) {
-                return true;
-            }
-        }
-        return false;
+        return switch (ItemCategoryClassifier.classify(material)) {
+            case FOOD -> BuyCategory.FOOD;
+            case MATERIALS -> BuyCategory.MATERIALS;
+            case ORES -> BuyCategory.ORES;
+            case OTHER -> BuyCategory.OTHER;
+        };
     }
 
     private void loadCategoryOverrides() {
@@ -606,11 +578,11 @@ public final class ShopGuiManager implements Listener {
         FOOD("&aFood & Crops", Material.GOLDEN_CARROT,
                 "&7Food, seeds, crops, and farm goods."),
         MATERIALS("&6Materials", Material.BRICKS,
-                "&7Grouped construction materials."),
+                "&7Building blocks and crafting materials."),
         ORES("&bOres", Material.IRON_PICKAXE,
-                "&7Ore and mined-resource prices."),
+                "&7Ores, minerals, and storage blocks."),
         OTHER("&dOther", Material.CHEST,
-                "&7Available items not organized yet."),
+                "&7Tools, gear, utility, and miscellaneous items."),
         RECENT("&eRecent Purchases", Material.CLOCK,
                 "&7Your most recently purchased items.");
 

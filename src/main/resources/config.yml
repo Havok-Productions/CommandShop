@@ -18,7 +18,9 @@ Aliases:
     - stonepressureplate
 
 # Only configured and available buy items appear in a GUI category.
-# Any buy item not recognized below is placed in Other automatically.
+# CommandShop automatically sorts food/crops, ores and mineral storage,
+# all remaining placeable blocks, crafting materials, and true "other"
+# items. Overrides below take priority over the automatic category.
 Category_Overrides:
   Food_And_Crops: []
   Materials: []

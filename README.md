@@ -8,6 +8,15 @@ A shop plugin that allows commands to be used, and supports an organized GUI.
 
 mvn clean install
 
+## Automatic item categories
+
+The buy GUI classifies every available Bukkit material. Food, crops, seeds,
+ores, mineral resources, and mineral storage blocks have dedicated categories.
+All other placeable blocks (including mud bricks and cut copper variants) and
+common crafting ingredients are Materials. Tools, armor, vehicles, utility
+items, and other functional leftovers appear in Other. `Category_Overrides` in
+`config.yml` always takes priority over automatic classification.
+
 ## Removing shop prices
 
 Administrators can remove one or both price directions:
