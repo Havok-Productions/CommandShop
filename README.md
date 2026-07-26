@@ -32,6 +32,9 @@ Administrators can remove one or both price directions:
 /commandshop delete <item>
 ```
 
+`/shop remove <item>` and `/commandshop delete <item>` always clear both the
+buy and sell entries and confirm that the item can no longer be bought or sold.
+
 ## Reloading and PlugManX
 
 For routine `config.yml`, `messages.yml`, and `prices.db` changes, use:

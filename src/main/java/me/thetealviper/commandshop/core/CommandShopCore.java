@@ -616,16 +616,19 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             removedSell = removeExistingPriceEntry("Sell", material)
                     | sellPrices.remove(material) != null;
         }
-        if (!removedBuy && !removedSell) {
+        boolean twoSidedRemoval = removeBuy && removeSell;
+        if (!removedBuy && !removedSell && !twoSidedRemoval) {
             send(sender, "Remove_None", Map.of("item", displayName(material)));
             return;
         }
 
-        savePrices();
+        if (removedBuy || removedSell) {
+            savePrices();
+        }
         String messageKey;
-        if (removedBuy && removedSell) {
-            messageKey = "Remove_Both";
-        } else if (removedBuy) {
+        if (twoSidedRemoval) {
+            messageKey = "Remove_ShopBoth";
+        } else if (removeBuy) {
             messageKey = "Remove_Buy";
         } else {
             messageKey = "Remove_Sell";
