@@ -28,7 +28,6 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -47,13 +46,11 @@ import me.thetealviper.commandshop.integrations.CommandShopPlaceholderExpansion;
 import me.thetealviper.commandshop.model.Price;
 import me.thetealviper.commandshop.model.SellQuote;
 import me.thetealviper.commandshop.model.ShopStat;
-import me.thetealviper.commandshop.platform.DynamicReloadSupport;
 
 public abstract class CommandShopCore extends JavaPlugin implements CommandShopApi {
     private volatile Map<Material, Price> buyPrices = new ConcurrentHashMap<>();
     private volatile Map<Material, Price> sellPrices = new ConcurrentHashMap<>();
     private volatile Map<String, Material> aliases = new ConcurrentHashMap<>();
-    private final Map<String, PluginCommand> commandCache = new ConcurrentHashMap<>();
     private final Object statsLock = new Object();
     private final DecimalFormat moneyFormat = new DecimalFormat("#,##0.00");
     private ExecutorService statsWriter;
@@ -99,8 +96,6 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         guiManager = new ShopGuiManager(this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
-        DynamicReloadSupport.restoreCommands(this);
-
         CommandCompleter completer = new CommandCompleter(this);
         for (String commandName : List.of("commandshop", "shop", "buy", "sell", "price", "setprice")) {
             if (getCommand(commandName) != null) {
@@ -128,7 +123,6 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         if (legacyExpansion != null) {
             legacyExpansion.unregister();
         }
-        DynamicReloadSupport.unregisterCommands(this);
         queueStatsSave();
         if (statsWriter != null) {
             statsWriter.shutdown();
@@ -1027,19 +1021,6 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             return player.getInventory().getItemInMainHand().getType();
         }
         return aliases.get(input.toLowerCase(Locale.ROOT));
-    }
-
-    public PluginCommand commandForReload(String commandName) {
-        PluginCommand current = getCommand(commandName);
-        if (current != null) {
-            commandCache.put(commandName.toLowerCase(Locale.ROOT), current);
-            return current;
-        }
-        return commandCache.get(commandName.toLowerCase(Locale.ROOT));
-    }
-
-    public List<PluginCommand> rememberedCommands() {
-        return new ArrayList<>(commandCache.values());
     }
 
     public Map<Material, Price> getBuyPrices() {

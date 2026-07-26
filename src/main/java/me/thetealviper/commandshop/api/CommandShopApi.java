@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -63,8 +62,4 @@ public interface CommandShopApi extends Plugin {
     SellQuote quoteSellable(ItemStack[] stacks);
 
     boolean executeSaleFromInventory(Player player, SellQuote quote);
-
-    PluginCommand commandForReload(String commandName);
-
-    List<PluginCommand> rememberedCommands();
 }

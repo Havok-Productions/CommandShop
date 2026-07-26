@@ -43,16 +43,28 @@ For routine `config.yml`, `messages.yml`, and `prices.db` changes, use:
 /commandshop reload
 ```
 
-CommandShop cleans up and restores its Bukkit command registrations during
-dynamic disable/enable cycles. It can reclaim labels left by a disabled
-`ScoreboardChatShop` or `CommandShop` instance without taking commands from an
-enabled plugin.
+CommandShop supports PlugManX's Bukkit-plugin unload/load sequence. During a
+PlugManX unload, PlugManX disables CommandShop, removes its Bukkit command
+registrations, and then synchronizes Paper's command dispatcher. During a load,
+PlugManX registers the new commands and performs a delayed dispatcher sync on
+Folia. CommandShop deliberately does not reflect into the command map or call
+`syncCommands()` from `onEnable()` or `onDisable()`, preventing concurrent
+command-tree modification while Paper builds player command suggestions.
+
+The supported dynamic commands are:
+
+```
+/plugman unload CommandShop
+/plugman load CommandShop
+/plugman reload CommandShop
+```
 
 Before `/plugman reload CommandShop`, make sure no player has a shop GUI open.
 Folia cannot synchronously close inventories owned by players in other regions
-during plugin disable. A full restart is still required after changing
-dependencies, changing the plugin name, or replacing the legacy
-`ScoreboardChatShop` jar.
+during plugin disable. Use CommandShop `27.1.3-folia` or newer; older builds
+performed their own command-map cleanup and could race Paper's asynchronous
+command builder. A full restart is still required after changing dependencies,
+changing the plugin name, or replacing the legacy `ScoreboardChatShop` jar.
 
 ## Official Discord 
 

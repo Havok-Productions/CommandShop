@@ -12,7 +12,6 @@ responsibility:
 - `shop` owns domain rules such as automatic item classification.
 - `model` contains immutable values shared between layers.
 - `integrations` owns optional third-party adapters such as PlaceholderAPI.
-- `platform` owns guarded server-version and plugin-manager compatibility code.
 
 Adapters depend on `api` and `model`, never on the concrete lifecycle class.
 Optional integrations and GUI code must not own persistence. The root plugin
