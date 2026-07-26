@@ -4,13 +4,13 @@
 
 A shop plugin that allows commands to be used, and supports an organized GUI.
 
-## Official Discord 
-
-https://discord.gg/aT9z7q7hX8
-
 ## Building instructions
 
 mvn clean install
+
+## Official Discord 
+
+https://discord.gg/aT9z7q7hX8
 
 ### Folia inquisitors
 
