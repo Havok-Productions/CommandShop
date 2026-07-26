@@ -448,7 +448,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             send(player, "Error_UnknownItem", Map.of());
             return;
         }
-        Price price = buyPrices.get(material);
+        Price price = getBuyPrice(material);
         if (price == null) {
             send(player, "Error_NotBuyable", Map.of());
             return;
@@ -490,7 +490,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             send(player, "Error_UnknownItem", Map.of());
             return;
         }
-        Price price = sellPrices.get(material);
+        Price price = getSellPrice(material);
         if (price == null) {
             send(player, "Error_NotSellable", Map.of());
             return;
@@ -543,7 +543,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             amount = parsed;
         }
         boolean shown = false;
-        Price buy = buyPrices.get(material);
+        Price buy = getBuyPrice(material);
         if (buy != null) {
             send(sender, "Price_Buy", Map.of(
                     "amount", Integer.toString(amount),
@@ -552,7 +552,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                     "bundle", buy.amount() + " for " + formatMoney(buy.price())));
             shown = true;
         }
-        Price sell = sellPrices.get(material);
+        Price sell = getSellPrice(material);
         if (sell != null) {
             send(sender, "Price_Sell", Map.of(
                     "amount", Integer.toString(amount),
@@ -780,10 +780,19 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         return String.format(Locale.ROOT, "%.2f", ratio);
     }
 
+    private String formatTriggerReason(SalesAbuseMonitor.TriggerReason reason) {
+        return switch (reason) {
+            case PROFITABLE_PATH -> "profitable buy/crafting path";
+            case EXTREME_VOLUME -> "extreme monetary sales volume";
+            case PROFITABLE_PATH_AND_EXTREME_VOLUME ->
+                    "profitable path and extreme monetary sales volume";
+        };
+    }
+
     private void notifyStaff(String messageKey, Map<String, String> replacements) {
         String consoleMessage = ChatColor.stripColor(color(
                 messages.getString("Prefix", "")
-                + replaceMessageValues(messages.getString(messageKey, messageKey), replacements)));
+                + replaceMessageValues(messageTemplate(messageKey, replacements), replacements)));
         getLogger().warning(consoleMessage);
         for (Player recipient : getServer().getOnlinePlayers()) {
             if (!recipient.hasPermission("commandshop.notify")) {
@@ -799,7 +808,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         if (isShopBlocked(player, true)) {
             return false;
         }
-        Price price = buyPrices.get(material);
+        Price price = getBuyPrice(material);
         if (price == null) {
             send(player, "Error_NotBuyable", Map.of());
             return false;
@@ -845,7 +854,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     public SellQuote quoteSellable(Iterable<ItemStack> stacks) {
         Map<Material, Integer> found = new HashMap<>();
         for (ItemStack stack : stacks) {
-            if (!isPlainSellItem(stack) || !sellPrices.containsKey(stack.getType())) {
+            if (!isPlainSellItem(stack) || getSellPrice(stack.getType()) == null) {
                 continue;
             }
             found.merge(stack.getType(), stack.getAmount(), Integer::sum);
@@ -856,7 +865,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         List<Material> sorted = new ArrayList<>(found.keySet());
         sorted.sort(Comparator.comparing(Material::name));
         for (Material material : sorted) {
-            Price price = sellPrices.get(material);
+            Price price = getSellPrice(material);
             int amount = (found.get(material) / price.amount()) * price.amount();
             if (amount <= 0) {
                 continue;
@@ -882,35 +891,58 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             send(player, "Sell_Nothing", Map.of());
             return false;
         }
+        Map<Material, Integer> currentAmounts = new LinkedHashMap<>();
+        Map<Material, Price> currentPrices = new LinkedHashMap<>();
+        double currentTotal = 0.0D;
+        int currentTotalItems = 0;
         for (Map.Entry<Material, Integer> entry : quote.amounts().entrySet()) {
+            Price currentPrice = getSellPrice(entry.getKey());
+            if (currentPrice == null) {
+                send(player, "Error_NotSellable", Map.of());
+                return false;
+            }
+            if (entry.getValue() <= 0 || entry.getValue() % currentPrice.amount() != 0) {
+                send(player, "Error_BundleSell", Map.of(
+                        "item", displayName(entry.getKey()),
+                        "bundle", Integer.toString(currentPrice.amount())));
+                return false;
+            }
             if (countPlainMaterial(player, entry.getKey()) < entry.getValue()) {
                 send(player, "Error_NotEnoughItems", Map.of());
                 return false;
             }
+            currentAmounts.put(entry.getKey(), entry.getValue());
+            currentPrices.put(entry.getKey(), currentPrice);
+            currentTotal += currentPrice.price()
+                    * (entry.getValue() / currentPrice.amount());
+            currentTotalItems += entry.getValue();
         }
+        SellQuote currentQuote = new SellQuote(
+                Collections.unmodifiableMap(currentAmounts),
+                currentTotal, currentTotalItems);
 
         ItemStack[] before = cloneContents(player.getInventory().getStorageContents());
-        for (Map.Entry<Material, Integer> entry : quote.amounts().entrySet()) {
+        for (Map.Entry<Material, Integer> entry : currentQuote.amounts().entrySet()) {
             removePlainMaterial(player, entry.getKey(), entry.getValue());
         }
-        EconomyResponse response = economy.depositPlayer(player, quote.total());
+        EconomyResponse response = economy.depositPlayer(player, currentQuote.total());
         if (!response.transactionSuccess()) {
             player.getInventory().setStorageContents(before);
             send(player, "Error_Economy", Map.of());
             return false;
         }
-        for (Map.Entry<Material, Integer> entry : quote.amounts().entrySet()) {
-            Price price = sellPrices.get(entry.getKey());
+        for (Map.Entry<Material, Integer> entry : currentQuote.amounts().entrySet()) {
+            Price price = currentPrices.get(entry.getKey());
             double earned = price.price() * (entry.getValue() / price.amount());
             recordTransaction(player, "Sell", entry.getKey(), entry.getValue(), earned);
         }
-        String soldItemName = quote.amounts().size() == 1
-                ? displayName(quote.amounts().keySet().iterator().next())
+        String soldItemName = currentQuote.amounts().size() == 1
+                ? displayName(currentQuote.amounts().keySet().iterator().next())
                 : "Mixed Items";
         send(player, "Sell_Success", Map.of(
-                "amount", Integer.toString(quote.totalItems()),
+                "amount", Integer.toString(currentQuote.totalItems()),
                 "item", soldItemName,
-                "price", formatMoney(quote.total())));
+                "price", formatMoney(currentQuote.total())));
         return true;
     }
 
@@ -1000,6 +1032,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                     "revenue", formatMoney(newFlag.revenue()),
                     "amount", Long.toString(newFlag.amount()),
                     "sales_ratio", formatRatio(newFlag.revenueToSalePriceRatio()),
+                    "reason", formatTriggerReason(newFlag.triggerReason()),
                     "profit_ratio", formatRatio(newFlag.profitRatio()),
                     "minutes", Integer.toString(newFlag.windowMinutes())));
         }
@@ -1016,7 +1049,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 getConfig().getInt("Abuse_Detection.Window_Minutes", 30));
         long now = System.currentTimeMillis();
         String path = base + ".Abuse.Windows." + material.name();
-        Price sellPrice = sellPrices.get(material);
+        Price sellPrice = getSellPrice(material);
         double profitRatio = recipeCatalog == null
                 ? 0.0D : recipeCatalog.saleRatio(material, sellPrice);
         double configuredSellUnitPrice = sellPrice == null
@@ -1028,7 +1061,9 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 getConfig().getDouble(
                         "Abuse_Detection.Minimum_Revenue_To_Sale_Price_Ratio", 2.0D),
                 getConfig().getDouble(
-                        "Abuse_Detection.Minimum_Profit_Ratio", 1.10D));
+                        "Abuse_Detection.Minimum_Profit_Ratio", 1.10D),
+                getConfig().getDouble(
+                        "Abuse_Detection.Minimum_Extreme_Volume_Ratio", 100.0D));
         SalesAbuseMonitor.Evaluation evaluation = abuseMonitor.evaluate(
                 stats.getStringList(path), now, amount, money,
                 configuredSellUnitPrice, profitRatio, thresholds);
@@ -1046,10 +1081,12 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 evaluation.revenueToSalePriceRatio());
         stats.set(base + ".Abuse.Profit_Ratio", profitRatio);
         stats.set(base + ".Abuse.Sale_Ratio", profitRatio);
+        stats.set(base + ".Abuse.Trigger_Reason", evaluation.triggerReason().name());
         stats.set(base + ".Abuse.Window_Minutes", windowMinutes);
         return new AbuseFlag(material, evaluation.totalAmount(),
                 evaluation.totalRevenue(),
-                evaluation.revenueToSalePriceRatio(), profitRatio, windowMinutes);
+                evaluation.revenueToSalePriceRatio(), profitRatio,
+                evaluation.triggerReason(), windowMinutes);
     }
 
     private boolean isShopBlocked(Player player, boolean notify) {
@@ -1145,6 +1182,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         double flaggedRevenue = 0.0D;
         double flaggedSalesRatio = 0.0D;
         double flaggedProfitRatio = 0.0D;
+        String flaggedReason = "unknown";
         synchronized (statsLock) {
             String base = "Players." + playerKey;
             display = stats.getString(base + ".Name", requestedName);
@@ -1159,6 +1197,9 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                     base + ".Abuse.Revenue_To_Sale_Price_Ratio");
             flaggedProfitRatio = stats.getDouble(base + ".Abuse.Profit_Ratio",
                     stats.getDouble(base + ".Abuse.Sale_Ratio"));
+            String storedReason = stats.getString(base + ".Abuse.Trigger_Reason", "unknown");
+            flaggedReason = storedReason.toLowerCase(Locale.ROOT)
+                    .replace('_', ' ');
         }
         send(sender, "Inspect_Header", Map.of("player", display));
         if (flagged) {
@@ -1166,6 +1207,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                     "item", displayName(flaggedMaterial),
                     "revenue", formatMoney(flaggedRevenue),
                     "sales_ratio", formatRatio(flaggedSalesRatio),
+                    "reason", flaggedReason,
                     "profit_ratio", formatRatio(flaggedProfitRatio)));
         }
         send(sender, "Inspect_SellHeader", Map.of());
@@ -1265,7 +1307,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             for (String materialName : stats.getStringList(
                     "Players." + playerId + ".RecentPurchases")) {
                 Material material = Material.matchMaterial(materialName);
-                if (material != null && buyPrices.containsKey(material)) {
+                if (material != null && getBuyPrice(material) != null) {
                     result.add(material);
                 }
             }
@@ -1359,7 +1401,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     }
 
     public void send(CommandSender sender, String key, Map<String, String> replacements) {
-        String value = messages.getString(key, key);
+        String value = messageTemplate(key, replacements);
         for (Map.Entry<String, String> replacement : replacements.entrySet()) {
             String replacementKey = replacement.getKey();
             String replacementValue = replacement.getValue();
@@ -1379,6 +1421,14 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             value = PlaceholderAPI.setPlaceholders((Player) sender, value);
         }
         sender.sendMessage(color(messages.getString("Prefix", "") + value));
+    }
+
+    private String messageTemplate(String key, Map<String, String> replacements) {
+        String value = messages.getString(key, key);
+        if (replacements.containsKey("reason") && !value.contains("%reason%")) {
+            value += " &cTrigger: &f%reason%&c.";
+        }
+        return value;
     }
 
     private String normalizeLegacyMessageFormatting(String value) {
@@ -1420,6 +1470,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
 
     private record AbuseFlag(Material material, long amount, double revenue,
             double revenueToSalePriceRatio, double profitRatio,
+            SalesAbuseMonitor.TriggerReason triggerReason,
             int windowMinutes) {
     }
 

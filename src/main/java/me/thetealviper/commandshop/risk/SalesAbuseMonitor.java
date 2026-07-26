@@ -39,21 +39,33 @@ public final class SalesAbuseMonitor {
                 Double.isFinite(configuredSellUnitPrice)
                 && configuredSellUnitPrice > 0.0D
                 ? totalRevenue / configuredSellUnitPrice : 0.0D;
-        boolean flag = totalRevenue + EPSILON >= thresholds.minimumRevenue()
+        boolean baseThresholdsMet =
+                totalRevenue + EPSILON >= thresholds.minimumRevenue()
                 && revenueToSalePriceRatio + EPSILON
-                >= thresholds.minimumRevenueToSalePriceRatio()
-                && saleToAcquisitionRatio + EPSILON
+                >= thresholds.minimumRevenueToSalePriceRatio();
+        boolean profitablePath = saleToAcquisitionRatio + EPSILON
                 >= thresholds.minimumProfitRatio();
+        boolean extremeVolume = revenueToSalePriceRatio + EPSILON
+                >= thresholds.minimumExtremeVolumeRatio();
+        TriggerReason triggerReason = null;
+        if (baseThresholdsMet && profitablePath && extremeVolume) {
+            triggerReason = TriggerReason.PROFITABLE_PATH_AND_EXTREME_VOLUME;
+        } else if (baseThresholdsMet && profitablePath) {
+            triggerReason = TriggerReason.PROFITABLE_PATH;
+        } else if (baseThresholdsMet && extremeVolume) {
+            triggerReason = TriggerReason.EXTREME_VOLUME;
+        }
         return new Evaluation(
                 List.copyOf(encoded), totalAmount, totalRevenue,
-                revenueToSalePriceRatio, saleToAcquisitionRatio, flag);
+                revenueToSalePriceRatio, saleToAcquisitionRatio, triggerReason);
     }
 
     public record Thresholds(
             int windowMinutes,
             double minimumRevenue,
             double minimumRevenueToSalePriceRatio,
-            double minimumProfitRatio) {
+            double minimumProfitRatio,
+            double minimumExtremeVolumeRatio) {
 
         public Thresholds {
             windowMinutes = Math.max(1, windowMinutes);
@@ -61,6 +73,8 @@ public final class SalesAbuseMonitor {
             minimumRevenueToSalePriceRatio =
                     Math.max(1.0D, minimumRevenueToSalePriceRatio);
             minimumProfitRatio = Math.max(1.0D, minimumProfitRatio);
+            minimumExtremeVolumeRatio =
+                    Math.max(minimumRevenueToSalePriceRatio, minimumExtremeVolumeRatio);
         }
     }
 
@@ -70,7 +84,17 @@ public final class SalesAbuseMonitor {
             double totalRevenue,
             double revenueToSalePriceRatio,
             double saleToAcquisitionRatio,
-            boolean shouldFlag) {
+            TriggerReason triggerReason) {
+
+        public boolean shouldFlag() {
+            return triggerReason != null;
+        }
+    }
+
+    public enum TriggerReason {
+        PROFITABLE_PATH,
+        EXTREME_VOLUME,
+        PROFITABLE_PATH_AND_EXTREME_VOLUME
     }
 
     private record SaleEntry(long timestamp, long amount, double revenue) {

@@ -60,21 +60,29 @@ configured price.
 ## Ratio-aware abuse flags
 
 Sales are tracked per player and per material in a configurable rolling window.
-By default, a player is flagged only when one material produces at least
-`$5,000` within 30 minutes, the money earned is at least `2.0x` that item's
-configured sell unit price, **and** its sell unit price is at least `1.10x`
-the cheapest known direct-buy or recursive crafting cost.
+A sale first has to produce at least `$5,000` within 30 minutes and at least
+`2.0x` the item's configured unit sell price. It is then flagged through either:
+
+- a known profitable acquisition path, where the sell unit price is at least
+  `1.10x` the cheapest known direct-buy or recursive crafting cost; or
+- extreme concentrated revenue of at least `100x` the configured unit sell
+  price, even if no complete acquisition cost is known.
 
 For example, earning `$5,000` from beacons configured to sell for `$2,500`
-produces a `2.0x` revenue-to-sale-price ratio. There is no fixed item-count
-requirement. If no complete acquisition price is known, that material cannot
-automatically flag a player. This prevents a single ordinary high-value sale
-or high revenue without a suspicious profit margin from triggering the
-detector.
+produces a `2.0x` revenue-to-sale-price ratio and still needs known profit
+evidence. Earning `$10,000` from iron configured to sell for `$35` produces a
+`285.71x` ratio, so it triggers the extreme-volume fallback even if the iron's
+acquisition cost cannot be calculated. If all 640 iron were sold at `$35`
+each, the actual revenue would be `$22,400` and the ratio would be `640x`.
+
+There is no fixed item-count requirement. This keeps ordinary high-value sales
+from triggering while still catching a low-cost item that suddenly produces
+an enormous amount of money.
 
 A newly flagged player receives an explanation, staff with
-`commandshop.notify` receive the evidence, and the flag is saved in `stats.db`.
-The player cannot buy, sell, or open shop GUIs until an administrator runs:
+`commandshop.notify` and the server console receive the trigger and evidence,
+and the flag is saved in `stats.db`. The player cannot buy, sell, or open shop
+GUIs until an administrator runs:
 
 ```
 /commandshop unflag <username>
@@ -82,6 +90,15 @@ The player cannot buy, sell, or open shop GUIs until an administrator runs:
 
 Operators have `commandshop.notify` and `commandshop.abuse.bypass` by default.
 Thresholds are configured under `Abuse_Detection` in `config.yml`.
+
+## Shared prices and availability
+
+Commands, tab completion, GUI category contents, GUI detail screens, recent
+purchases, buy transactions, and sell quotes all read the same in-memory buy
+and sell price maps loaded from `prices.db`. The GUI does not maintain a
+separate item or price list. Transactions re-read the current price when the
+player clicks, so a price removal or reload cannot complete a purchase using
+an older GUI display.
 
 ## Reloading and PlugManX
 
