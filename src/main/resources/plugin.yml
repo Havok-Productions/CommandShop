@@ -10,8 +10,8 @@ softdepend: [PlaceholderAPI, PlugMan, PlugManX]
 
 commands:
   commandshop:
-    description: Open, reload, inspect, or delete CommandShop prices
-    usage: /commandshop [reload|delete <item>|inspect <username>]
+    description: Open, reload, inspect, unflag, or delete CommandShop prices
+    usage: /commandshop [reload|delete <item>|inspect <username>|unflag <username>]
     aliases: [cshop]
   shop-gui:
     description: Open the main shop GUI
@@ -48,4 +48,10 @@ permissions:
     default: op
   commandshop.admin:
     description: Change CommandShop prices
+    default: op
+  commandshop.notify:
+    description: Receive price-arbitrage and shop-abuse alerts
+    default: op
+  commandshop.abuse.bypass:
+    description: Bypass automatic shop-abuse flags and blocks
     default: op

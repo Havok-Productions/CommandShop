@@ -36,6 +36,7 @@ public final class CommandCompleter implements TabCompleter {
                 if (sender.hasPermission("commandshop.admin")) {
                     options.add("reload");
                     options.add("delete");
+                    options.add("unflag");
                 }
                 return matches(args[0], options);
             }
@@ -75,6 +76,11 @@ public final class CommandCompleter implements TabCompleter {
                     || (name.equals("shop")
                     && (args[0].equalsIgnoreCase("check")
                     || args[0].equalsIgnoreCase("inspect")))) {
+                return matches(args[1], plugin.getKnownPlayerNames());
+            }
+            if (sender.hasPermission("commandshop.admin")
+                    && name.equals("commandshop")
+                    && args[0].equalsIgnoreCase("unflag")) {
                 return matches(args[1], plugin.getKnownPlayerNames());
             }
             if (sender.hasPermission("commandshop.admin")

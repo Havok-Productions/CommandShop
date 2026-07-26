@@ -35,6 +35,48 @@ Administrators can remove one or both price directions:
 `/shop remove <item>` and `/commandshop delete <item>` always clear both the
 buy and sell entries and confirm that the item can no longer be bought or sold.
 
+## Recipe and price auditing
+
+CommandShop writes two audit files in `plugins/CommandShop`:
+
+- `recipes.yml` documents every recipe registered with Bukkit, including its
+  key, implementation type, output, shape when available, ingredient choices,
+  and whether Bukkit exposes enough information for a price audit. It is
+  refreshed after startup and by `/commandshop reload` so recipes registered
+  by other plugins are included.
+- `price-history.yml` records the actor, timestamp, direction, material,
+  previous price, and new price for every price set or removal command.
+
+The audit recursively calculates the cheapest known acquisition cost from
+direct buy prices and registered recipes. It warns online players with
+`commandshop.notify` and the server console when either:
+
+- an item can be bought and immediately sold for more; or
+- a recipe's sellable output is worth more than all fully priced ingredients.
+
+These alerts are notification-only. CommandShop does not change or remove any
+configured price.
+
+## Ratio-aware abuse flags
+
+Sales are tracked per player and per material in a configurable rolling window.
+By default, a player is flagged only when one material produces at least
+`$5,000` and 64 sold items within 30 minutes **and** its sell price is at least
+`1.10x` the cheapest known direct-buy or recursive crafting cost. If no complete
+acquisition price is known, that material cannot automatically flag a player.
+This prevents normal high-value sales alone from triggering the detector.
+
+A newly flagged player receives an explanation, staff with
+`commandshop.notify` receive the evidence, and the flag is saved in `stats.db`.
+The player cannot buy, sell, or open shop GUIs until an administrator runs:
+
+```
+/commandshop unflag <username>
+```
+
+Operators have `commandshop.notify` and `commandshop.abuse.bypass` by default.
+Thresholds are configured under `Abuse_Detection` in `config.yml`.
+
 ## Reloading and PlugManX
 
 For routine `config.yml`, `messages.yml`, and `prices.db` changes, use:
