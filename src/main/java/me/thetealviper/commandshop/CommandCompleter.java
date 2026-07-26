@@ -31,7 +31,11 @@ public final class CommandCompleter implements TabCompleter {
         String name = command.getName().toLowerCase(Locale.ROOT);
         if (args.length == 1) {
             if (name.equals("commandshop")) {
-                return matches(args[0], List.of("inspect"));
+                List<String> options = new ArrayList<>(List.of("inspect"));
+                if (sender.hasPermission("commandshop.admin")) {
+                    options.add("reload");
+                }
+                return matches(args[0], options);
             }
             if (name.equals("shop")) {
                 return matches(args[0], List.of("check"));

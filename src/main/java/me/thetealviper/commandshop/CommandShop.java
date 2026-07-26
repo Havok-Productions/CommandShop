@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -27,11 +28,13 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -39,16 +42,13 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 
 public final class CommandShop extends JavaPlugin {
-    private final Map<Material, Price> buyPrices = new LinkedHashMap<>();
-    private final Map<Material, Price> sellPrices = new LinkedHashMap<>();
-    private final Map<String, Material> aliases = new HashMap<>();
+    private final Map<Material, Price> buyPrices = new ConcurrentHashMap<>();
+    private final Map<Material, Price> sellPrices = new ConcurrentHashMap<>();
+    private final Map<String, Material> aliases = new ConcurrentHashMap<>();
+    private final Map<String, PluginCommand> commandCache = new ConcurrentHashMap<>();
     private final Object statsLock = new Object();
     private final DecimalFormat moneyFormat = new DecimalFormat("#,##0.00");
-    private final ExecutorService statsWriter = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "CommandShop-stats-writer");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private ExecutorService statsWriter;
 
     private Economy economy;
     private YamlConfiguration prices;
@@ -64,6 +64,8 @@ public final class CommandShop extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        shuttingDown = false;
+        statsWriter = createStatsWriter();
         migrateLegacyFiles();
         saveDefaultConfig();
         reloadConfig();
@@ -88,6 +90,8 @@ public final class CommandShop extends JavaPlugin {
 
         guiManager = new ShopGuiManager(this);
         getServer().getPluginManager().registerEvents(guiManager, this);
+
+        DynamicReloadSupport.restoreCommands(this);
 
         CommandCompleter completer = new CommandCompleter(this);
         for (String commandName : List.of("commandshop", "shop", "buy", "sell", "price", "setprice")) {
@@ -116,15 +120,26 @@ public final class CommandShop extends JavaPlugin {
         if (legacyExpansion != null) {
             legacyExpansion.unregister();
         }
+        DynamicReloadSupport.unregisterCommands(this);
         queueStatsSave();
-        statsWriter.shutdown();
-        try {
-            if (!statsWriter.awaitTermination(5, TimeUnit.SECONDS)) {
-                getLogger().warning("Timed out while flushing stats.db.");
+        if (statsWriter != null) {
+            statsWriter.shutdown();
+            try {
+                if (!statsWriter.awaitTermination(5, TimeUnit.SECONDS)) {
+                    getLogger().warning("Timed out while flushing stats.db.");
+                }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
             }
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
         }
+    }
+
+    private ExecutorService createStatsWriter() {
+        return Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "CommandShop-stats-writer");
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     private boolean setupEconomy() {
@@ -275,10 +290,16 @@ public final class CommandShop extends JavaPlugin {
                 if (player != null) {
                     guiManager.openMain(player);
                 }
+            } else if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+                if (!sender.hasPermission("commandshop.admin")) {
+                    send(sender, "Error_NoPermission", Map.of());
+                } else {
+                    scheduleRuntimeReload(sender);
+                }
             } else if (args.length == 2 && args[0].equalsIgnoreCase("inspect")) {
                 inspect(sender, args[1]);
             } else {
-                sender.sendMessage(color("&e/commandshop inspect <username>"));
+                sender.sendMessage(color("&e/commandshop <reload|inspect <username>>"));
             }
             return true;
         }
@@ -314,6 +335,51 @@ public final class CommandShop extends JavaPlugin {
             return true;
         }
         return false;
+    }
+
+    private void scheduleRuntimeReload(CommandSender sender) {
+        getServer().getGlobalRegionScheduler().execute(this, () -> {
+            try {
+                reloadConfig();
+                getConfig().options().copyDefaults(true);
+
+                prices = loadYaml(pricesFile);
+                messages = loadMessages();
+                loadAliases();
+                loadPrices();
+
+                if (guiManager != null) {
+                    HandlerList.unregisterAll(guiManager);
+                }
+                guiManager = new ShopGuiManager(this);
+                getServer().getPluginManager().registerEvents(guiManager, this);
+
+                sendReloadResult(sender, true, null);
+            } catch (RuntimeException exception) {
+                getLogger().log(Level.SEVERE, "Could not reload CommandShop runtime state.", exception);
+                sendReloadResult(sender, false, exception.getClass().getSimpleName());
+            }
+        });
+    }
+
+    private void sendReloadResult(CommandSender sender, boolean success, String errorType) {
+        Runnable response = () -> {
+            if (success) {
+                send(sender, "Reload_Success", Map.of(
+                        "buy_count", Integer.toString(buyPrices.size()),
+                        "sell_count", Integer.toString(sellPrices.size())));
+            } else {
+                send(sender, "Reload_Failed", Map.of(
+                        "error", errorType == null ? "unknown error" : errorType));
+            }
+        };
+
+        if (sender instanceof Player) {
+            Player player = (Player) sender;
+            player.getScheduler().execute(this, response, null, 1L);
+        } else {
+            response.run();
+        }
     }
 
     private void handleBuyCommand(CommandSender sender, String[] args) {
@@ -706,7 +772,8 @@ public final class CommandShop extends JavaPlugin {
     }
 
     private void queueStatsSave() {
-        if (stats == null || statsFile == null || (shuttingDown && statsWriter.isShutdown())) {
+        if (stats == null || statsFile == null || statsWriter == null
+                || (shuttingDown && statsWriter.isShutdown())) {
             return;
         }
         final String snapshot;
@@ -883,6 +950,19 @@ public final class CommandShop extends JavaPlugin {
             return player.getInventory().getItemInMainHand().getType();
         }
         return aliases.get(input.toLowerCase(Locale.ROOT));
+    }
+
+    PluginCommand commandForReload(String commandName) {
+        PluginCommand current = getCommand(commandName);
+        if (current != null) {
+            commandCache.put(commandName.toLowerCase(Locale.ROOT), current);
+            return current;
+        }
+        return commandCache.get(commandName.toLowerCase(Locale.ROOT));
+    }
+
+    List<PluginCommand> rememberedCommands() {
+        return new ArrayList<>(commandCache.values());
     }
 
     public Map<Material, Price> getBuyPrices() {

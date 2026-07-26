@@ -6,12 +6,12 @@ folia-supported: true
 author: yomamaeatstoes
 description: Organized GUI and command shop for Vault economies
 depend: [Vault]
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, PlugMan, PlugManX]
 
 commands:
   commandshop:
-    description: Open CommandShop or inspect player transaction rankings
-    usage: /commandshop [inspect <username>]
+    description: Open, reload, or inspect CommandShop
+    usage: /commandshop [reload|inspect <username>]
     aliases: [cshop]
   shop-gui:
     description: Open the main shop GUI
