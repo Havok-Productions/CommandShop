@@ -1,21 +1,51 @@
-name: "ScoreboardChatShop"
-author: TheTealViper
+name: CommandShop
 version: "${project.version}"
-api-version: 1.18
-description: "Shop through chat simple as that"
-main: me.TheTealViper.scoreboardchatshop.ScoreboardChatShop
+main: me.thetealviper.commandshop.CommandShop
+api-version: "1.19"
+folia-supported: true
+author: yomamaeatstoes
+description: Organized GUI and command shop for Vault economies
 depend: [Vault]
 softdepend: [PlaceholderAPI]
-folia-supported: true
+
 commands:
- setprice:
-  description: Set the price
- buy:
-  description: Buy the item
- sell:
-  description: Sell the item
- price:
-  description: Get the price
- shop:
-  description: View shop stats
-  usage: /shop check <username>
+  commandshop:
+    description: Open CommandShop or inspect player transaction rankings
+    usage: /commandshop [inspect <username>]
+    aliases: [cshop]
+  shop-gui:
+    description: Open the main shop GUI
+    usage: /shop-gui
+  buy-gui:
+    description: Open the organized buy GUI
+    usage: /buy-gui
+  sell-gui:
+    description: Open the drag-to-sell GUI
+    usage: /sell-gui
+  shop:
+    description: Open the shop or view legacy player shop statistics
+    usage: /shop [check <username>]
+  buy:
+    description: Open the buy GUI or buy a priced item
+    usage: /buy [item] [amount|max]
+  sell:
+    description: Open the sell GUI or sell a priced item
+    usage: /sell [item] [amount|max]
+  price:
+    description: Display buy and sell prices
+    usage: /price <item|hand> [amount]
+  setprice:
+    description: Configure a buy or sell bundle price
+    usage: /setprice <buy|sell> <item|hand> <price> [amount]
+    permission: commandshop.admin
+
+permissions:
+  commandshop.use:
+    description: Use CommandShop and its GUIs
+    default: true
+  commandshop.inspect:
+    description: Inspect another player's top shop transactions
+    default: op
+  commandshop.admin:
+    description: Change CommandShop prices
+    default: op

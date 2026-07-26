@@ -1,35 +1,84 @@
 ##########################################################
-#               ScoreboardChatShop Config                #
+#                    CommandShop                         #
 ##########################################################
 
-Aliases:
- COBBLESTONE:
-  - cobble
- OAK_PRESSURE_PLATE:
-  - pressure_plate
-  - pressureplate
- STONE_PRESSURE_PLATE:
-  - stonepressureplate
-# Format is
-# [UPPERCASE_PARENT]:
-#  - indented_child_1
-#  - no_spaces_allowed_in_children_names
-#  - child_3
-#
-# Parent material names can be found: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+# Existing ScoreboardChatShop prices.db, stats.db, config.yml and
+# messages.yml files are copied automatically on first startup.
 
 Minimal_Sell_Autocomplete: true
-# Set this to true if you want to hide items from the sell tab
-#  autocomplete which are not currently in the player's inventory.
-# Set this to false if you want players to see all available items
-#  for sale in the tab autocomplete regardless of what is in their
-#  inventories.
-# Keep in mind "/price" autocompletes a full list of possible
-#  buy/sell items.
+Recent_Purchase_Limit: 45
 
-##########################################################
-#                        Version                         #
-##########################################################
+Aliases:
+  COBBLESTONE:
+    - cobble
+  OAK_PRESSURE_PLATE:
+    - pressure_plate
+    - pressureplate
+  STONE_PRESSURE_PLATE:
+    - stonepressureplate
 
-VERSION: 1
-#Do not touch this. No touchy.
+# Only configured and available buy items appear in a GUI category.
+# Any buy item not recognized below is placed in Other automatically.
+Category_Overrides:
+  Food_And_Crops: []
+  Materials: []
+  Ores: []
+  Other: []
+
+# Patterns use a leading * as a suffix match. A material is displayed
+# under the first matching group. Groups with no available buy items
+# are hidden automatically.
+Material_Groups:
+  Stairs:
+    icon: OAK_STAIRS
+    patterns: ["*_STAIRS"]
+  Planks:
+    icon: OAK_PLANKS
+    patterns: ["*_PLANKS"]
+  Wool:
+    icon: WHITE_WOOL
+    patterns: ["*_WOOL"]
+  Logs:
+    icon: OAK_LOG
+    patterns: ["*_LOG", "*_WOOD", "*_STEM", "*_HYPHAE"]
+  Slabs:
+    icon: OAK_SLAB
+    patterns: ["*_SLAB"]
+  Fences:
+    icon: OAK_FENCE
+    patterns: ["*_FENCE"]
+  Fence Gates:
+    icon: OAK_FENCE_GATE
+    patterns: ["*_FENCE_GATE"]
+  Doors:
+    icon: OAK_DOOR
+    patterns: ["*_DOOR"]
+  Trapdoors:
+    icon: OAK_TRAPDOOR
+    patterns: ["*_TRAPDOOR"]
+  Buttons:
+    icon: OAK_BUTTON
+    patterns: ["*_BUTTON"]
+  Pressure Plates:
+    icon: OAK_PRESSURE_PLATE
+    patterns: ["*_PRESSURE_PLATE"]
+  Walls:
+    icon: COBBLESTONE_WALL
+    patterns: ["*_WALL"]
+  Carpets:
+    icon: WHITE_CARPET
+    patterns: ["*_CARPET"]
+  Terracotta:
+    icon: TERRACOTTA
+    patterns: ["TERRACOTTA", "*_TERRACOTTA"]
+  Concrete:
+    icon: WHITE_CONCRETE
+    patterns: ["*_CONCRETE"]
+  Concrete Powder:
+    icon: WHITE_CONCRETE_POWDER
+    patterns: ["*_CONCRETE_POWDER"]
+  Glass Panes:
+    icon: GLASS_PANE
+    patterns: ["GLASS_PANE", "*_STAINED_GLASS_PANE"]
+
+VERSION: 2

@@ -1,80 +1,27 @@
-Buy_BundleAlert: "You can only buy that item in bundles of %scoreboardchatshop_basebundleamount%."
-Buy_CanOnlySell: "You can only sell that item."
-Buy_MissingMaterial: "That material can't be bought."
-Buy_MissingInventorySpace: "You don't have enough inventory space for that."
-Buy_NotBoughtOrSold: "That material is not bought or sold."
-Buy_NotEnoughMoney: "You don't have enough money to buy that."
-Buy_Success: "Purchased %scoreboardchatshop_amount% &>LCH#00FFAA%scoreboardchatshop_basematerial%&<LCH#FF00EA&r for &??$%scoreboardchatshop_price%."
-
-Help_Buy: "/buy (item/hand) <amount> - Buy items"
-Help_Price: "/price (item/hand) <amount> - Get buy/sell price"
-Help_Sell: "/sell (item/hand) <amount> - Sell items"
-Help_SetPrice: "/setprice (sell/buy) (item/hand) ($) <amount> - Set buy/sell price"
-Help_Shop: "/shop check (username) - View a player's top shop items"
-
-Error_ConsoleAttempt: "That command isn't available for console."
-Error_MissingPerms: "You don't have permission to do that!"
-Error_NumberFormat: "A number you have typed is formatted incorrectly."
-
-Price_ConsoleAttempt: "Console must specify an item name."
-Price_NotBoughtOrSold: "That item is not bought or sold."
-Price_BuyResponse: "Buy: $%scoreboardchatshop_price% for %scoreboardchatshop_amount%. Buy in bundles of %scoreboardchatshop_basebundleamount%."
-Price_SellResponse: "Sell: $%scoreboardchatshop_price% for %scoreboardchatshop_amount%. Sells in bundles of %scoreboardchatshop_basebundleamount%."
-
-Sell_BundleAlert: "You can only sell that item in bundles of %scoreboardchatshop_basebundleamount%."
-Sell_CanOnlyBuy: "You can only buy that item."
-Sell_MissingMaterial: "That material can't be sold."
-Sell_NotBoughtOrSold: "That material is not bought or sold."
-Sell_NotEnoughItems: "You don't have enough items for that."
-Sell_Success: "Sold %scoreboardchatshop_amount% &>LCH#FF00EA%scoreboardchatshop_basematerial%&<LCH#00FFAA&r for &?$%scoreboardchatshop_price%."
-
-SetPrice_Success: "Successfully set the price of %scoreboardchatshop_basematerial% as $%scoreboardchatshop_price% for %scoreboardchatshop_amount%!"
-SetPrice_MaterialDoesntExist: "That material does not exist."
-
-Shop_Check_Header: "&6Shop stats for &e%scoreboardchatshop_player%&6:"
-Shop_Check_BuyHeader: "&aTop bought:"
-Shop_Check_SellHeader: "&aTop sold:"
-Shop_Check_BuyLine: "&7#%scoreboardchatshop_rank% &f%scoreboardchatshop_material% &7x%scoreboardchatshop_amount% &8- &cspent $%scoreboardchatshop_money%"
-Shop_Check_SellLine: "&7#%scoreboardchatshop_rank% &f%scoreboardchatshop_material% &7x%scoreboardchatshop_amount% &8- &aearned $%scoreboardchatshop_money%"
-Shop_Check_NoBoughtStats: "&7No bought item stats yet."
-Shop_Check_NoSoldStats: "&7No sold item stats yet."
-Shop_Check_NoStats: "&7No shop stats found for %scoreboardchatshop_player%."
-
-#Syntax:
-# %scoreboardchatshop_price% - Price of specific request (only functions where applicable)
-# %scoreboardchatshop_amount% - Amount of specific arequest (only functions where applicable)
-# %scoreboardchatshop_material% - Material specified (only functions where applicable)
-# %scoreboardchatshop_basebundleprice% - Price of base bundle (only functions where applicable)
-# %scoreboardchatshop_basebundleamount% - Amount of base bundle (only functions where applicable)
-# %scoreboardchatshop_basematerial% - Official material name
-# %scoreboardchatshop_player% - Player shown in /shop check
-# %scoreboardchatshop_rank% - Rank shown in /shop check lines
-# %scoreboardchatshop_money% - Money shown in /shop check lines
-#PlaceholderAPI:
-# %scoreboardchatshop_buy_price_DIAMOND% - Buy price for the configured bundle
-# %scoreboardchatshop_buy_amount_DIAMOND% - Buy bundle amount
-# %scoreboardchatshop_buy_unit_price_DIAMOND% - Buy price per item
-# %scoreboardchatshop_sell_price_DIAMOND% - Sell price for the configured bundle
-# %scoreboardchatshop_sell_amount_DIAMOND% - Sell bundle amount
-# %scoreboardchatshop_sell_unit_price_DIAMOND% - Sell price per item
-# %scoreboardchatshop_stats_buy_top_1_item% - Player's top bought item
-# %scoreboardchatshop_stats_buy_top_1_amount% - Amount bought for that rank
-# %scoreboardchatshop_stats_buy_top_1_money% - Money spent for that rank
-# %scoreboardchatshop_stats_sell_top_1_item% - Player's top sold item
-# %scoreboardchatshop_stats_sell_top_1_amount% - Amount sold for that rank
-# %scoreboardchatshop_stats_sell_top_1_money% - Money earned for that rank
-# %scoreboardchatshop_stats_buy_total_amount% - Total items bought
-# %scoreboardchatshop_stats_buy_total_money% - Total money spent
-# %scoreboardchatshop_stats_sell_total_amount% - Total items sold
-# %scoreboardchatshop_stats_sell_total_money% - Total money earned
-#Coloring:
-# - Standard color codes apply
-# - "&?" substitutes as a random vanilla color
-# - "&??" substitutes as a random hex color
-# - "&>RGB######___&<RGB######" will become an RGB gradient spanning from the left hex code color to the right hex code color
-#     ###### represents hex codes
-#     ___ represents the text (typically a placeholder) which the gradient spans across
-# - "&>LCH######___&<LCH######" will become an LCH gradient spanning from the left hex code color to the right hex code color
-#     LCH traverses nicer across colors than RGB in my opinion. If you don't know the difference, not a big deal just try both.
-#     ###### represents hex codes
-#     ___ represents the text (typically a placeholder) which the gradient spans across
+Prefix: "&8[&6CommandShop&8] &r"
+Error_NoPermission: "&cYou do not have permission to do that."
+Error_PlayerOnly: "&cThat command can only be used by a player."
+Error_Number: "&cEnter a valid positive number."
+Error_UnknownItem: "&cThat item does not exist."
+Error_NotBuyable: "&cThat item is not available to buy."
+Error_NotSellable: "&cThat item is not available to sell."
+Error_BundleBuy: "&c%item% can only be bought in bundles of %bundle%."
+Error_BundleSell: "&c%item% can only be sold in bundles of %bundle%."
+Error_NotEnoughMoney: "&cYou need %price% to make that purchase."
+Error_NotEnoughItems: "&cYou no longer have all of the selected sell items."
+Error_NoSpace: "&cYou do not have enough inventory space."
+Error_Economy: "&cThe economy provider rejected that transaction."
+Buy_Success: "&aPurchased &f%amount%x %item% &afor &f%price%&a."
+Sell_Success: "&aSold &f%amount% item(s) &afor &f%price%&a."
+Sell_Nothing: "&eThere are no sellable full bundles in that selection."
+SetPrice_Success: "&aSet the %type% price for %item% to %price% per %amount%."
+SetPrice_Removed: "&aRemoved the %type% price for %item%."
+Price_Buy: "&aBuy: &f%amount%x %item% &7for &f%price% &7(base bundle: %bundle%)"
+Price_Sell: "&eSell: &f%amount%x %item% &7for &f%price% &7(base bundle: %bundle%)"
+Price_None: "&eThat item has no buy or sell price."
+Inspect_Header: "&6Shop activity for &e%player%&6:"
+Inspect_BuyHeader: "&aTop purchases by money spent:"
+Inspect_SellHeader: "&aTop sales by money earned:"
+Inspect_LineBuy: "&7#%rank% &f%item% &7x%amount% &8- &cspent %money%"
+Inspect_LineSell: "&7#%rank% &f%item% &7x%amount% &8- &aearned %money%"
+Inspect_None: "&7No recorded transactions."
