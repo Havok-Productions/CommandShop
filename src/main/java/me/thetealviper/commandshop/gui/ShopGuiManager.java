@@ -145,11 +145,17 @@ public final class ShopGuiManager implements Listener {
         player.openInventory(holder.inventory);
     }
 
-    private void openVariants(Player player, BuyCategory category, int categoryPage, BuyEntry entry) {
-        VariantsHolder holder = new VariantsHolder(category, categoryPage, entry);
+    private void openVariants(Player player, BuyCategory category, int categoryPage,
+            BuyEntry entry, int requestedVariantPage) {
+        int maxPage = Pagination.maxPage(entry.materials.size(), PAGE_SIZE);
+        int variantPage = Pagination.clampPage(
+                requestedVariantPage, entry.materials.size(), PAGE_SIZE);
+        VariantsHolder holder = new VariantsHolder(
+                category, categoryPage, entry, variantPage);
         fill(holder.inventory);
-        for (int slot = 0; slot < entry.materials.size() && slot < PAGE_SIZE; slot++) {
-            Material material = entry.materials.get(slot);
+        int start = variantPage * PAGE_SIZE;
+        for (int slot = 0; slot < PAGE_SIZE && start + slot < entry.materials.size(); slot++) {
+            Material material = entry.materials.get(start + slot);
             Price price = plugin.getBuyPrice(material);
             holder.inventory.setItem(slot, item(material, "&f" + plugin.displayName(material),
                     "&7Base bundle: &f" + price.amount(),
@@ -158,20 +164,28 @@ public final class ShopGuiManager implements Listener {
                     "&eClick for bundle prices"));
         }
         holder.inventory.setItem(45, item(Material.ARROW, "&cBack", "&7Return to " + entry.display + "."));
+        if (variantPage > 0) {
+            holder.inventory.setItem(48, item(Material.ARROW, "&ePrevious page"));
+        }
         holder.inventory.setItem(49, item(entry.icon, "&6" + entry.display,
-                "&7Choose one available variant."));
+                "&7Page &f" + (variantPage + 1) + "&7/&f" + (maxPage + 1),
+                "&7All variants shown here are available via &f/buy&7."));
+        if (variantPage < maxPage) {
+            holder.inventory.setItem(50, item(Material.ARROW, "&eNext page"));
+        }
         player.openInventory(holder.inventory);
     }
 
     private void openDetails(Player player, BuyCategory category, int categoryPage,
-            BuyEntry parentEntry, Material material) {
+            BuyEntry parentEntry, int variantPage, Material material) {
         Price price = plugin.getBuyPrice(material);
         if (price == null) {
             plugin.send(player, "Error_NotBuyable", Map.of());
             openCategory(player, category, categoryPage);
             return;
         }
-        DetailHolder holder = new DetailHolder(category, categoryPage, parentEntry, material);
+        DetailHolder holder = new DetailHolder(
+                category, categoryPage, parentEntry, variantPage, material);
         fill(holder.inventory);
         double unitPrice = price.price() / price.amount();
         holder.inventory.setItem(13, item(material, "&6&l" + plugin.displayName(material),
@@ -266,9 +280,20 @@ public final class ShopGuiManager implements Listener {
             VariantsHolder holder = (VariantsHolder) rawHolder;
             if (slot == 45) {
                 openCategory(player, holder.category, holder.categoryPage);
-            } else if (slot >= 0 && slot < holder.entry.materials.size() && slot < PAGE_SIZE) {
+            } else if (slot == 48 && holder.variantPage > 0) {
+                openVariants(player, holder.category, holder.categoryPage,
+                        holder.entry, holder.variantPage - 1);
+            } else if (slot == 50 && holder.variantPage < Pagination.maxPage(
+                    holder.entry.materials.size(), PAGE_SIZE)) {
+                openVariants(player, holder.category, holder.categoryPage,
+                        holder.entry, holder.variantPage + 1);
+            } else if (slot >= 0 && slot < PAGE_SIZE) {
+                int index = Pagination.index(holder.variantPage, slot, PAGE_SIZE);
+                if (index < 0 || index >= holder.entry.materials.size()) {
+                    return;
+                }
                 openDetails(player, holder.category, holder.categoryPage,
-                        holder.entry, holder.entry.materials.get(slot));
+                        holder.entry, holder.variantPage, holder.entry.materials.get(index));
             }
         } else if (rawHolder instanceof DetailHolder) {
             handleDetailClick(player, (DetailHolder) rawHolder, slot);
@@ -305,9 +330,9 @@ public final class ShopGuiManager implements Listener {
         }
         BuyEntry entry = holder.entries.get(index);
         if (entry.materials.size() > 1) {
-            openVariants(player, holder.category, holder.page, entry);
+            openVariants(player, holder.category, holder.page, entry, 0);
         } else {
-            openDetails(player, holder.category, holder.page, null, entry.materials.get(0));
+            openDetails(player, holder.category, holder.page, null, 0, entry.materials.get(0));
         }
     }
 
@@ -316,7 +341,8 @@ public final class ShopGuiManager implements Listener {
             if (holder.parentEntry == null) {
                 openCategory(player, holder.category, holder.categoryPage);
             } else {
-                openVariants(player, holder.category, holder.categoryPage, holder.parentEntry);
+                openVariants(player, holder.category, holder.categoryPage,
+                        holder.parentEntry, holder.variantPage);
             }
             return;
         }
@@ -331,7 +357,7 @@ public final class ShopGuiManager implements Listener {
             Price price = plugin.getBuyPrice(holder.material);
             if (price != null && plugin.purchase(player, holder.material, price.amount() * (index + 1))) {
                 openDetails(player, holder.category, holder.categoryPage,
-                        holder.parentEntry, holder.material);
+                        holder.parentEntry, holder.variantPage, holder.material);
             }
             return;
         }
@@ -449,7 +475,8 @@ public final class ShopGuiManager implements Listener {
             if (!matches.isEmpty()) {
                 matches.sort(Comparator.comparing(Material::name));
                 consumed.addAll(matches);
-                Material icon = group.icon == null ? matches.get(0) : group.icon;
+                Material icon = group.icon != null && matches.contains(group.icon)
+                        ? group.icon : matches.get(0);
                 result.add(new BuyEntry(group.name, icon, matches));
             }
         }
@@ -466,7 +493,7 @@ public final class ShopGuiManager implements Listener {
             return plugin.getRecentPurchases(player.getUniqueId());
         }
         List<Material> result = new ArrayList<>();
-        for (Material material : plugin.getBuyPrices().keySet()) {
+        for (Material material : plugin.getBuyableMaterials()) {
             if (categoryOf(material) == category) {
                 result.add(material);
             }
@@ -684,12 +711,15 @@ public final class ShopGuiManager implements Listener {
         private final BuyCategory category;
         private final int categoryPage;
         private final BuyEntry entry;
+        private final int variantPage;
 
-        private VariantsHolder(BuyCategory category, int categoryPage, BuyEntry entry) {
+        private VariantsHolder(BuyCategory category, int categoryPage,
+                BuyEntry entry, int variantPage) {
             super(54, "&8Choose • " + entry.display);
             this.category = category;
             this.categoryPage = categoryPage;
             this.entry = entry;
+            this.variantPage = variantPage;
         }
     }
 
@@ -697,14 +727,16 @@ public final class ShopGuiManager implements Listener {
         private final BuyCategory category;
         private final int categoryPage;
         private final BuyEntry parentEntry;
+        private final int variantPage;
         private final Material material;
 
         private DetailHolder(BuyCategory category, int categoryPage,
-                BuyEntry parentEntry, Material material) {
+                BuyEntry parentEntry, int variantPage, Material material) {
             super(45, "&8Buy • " + material.name());
             this.category = category;
             this.categoryPage = categoryPage;
             this.parentEntry = parentEntry;
+            this.variantPage = variantPage;
             this.material = material;
         }
     }

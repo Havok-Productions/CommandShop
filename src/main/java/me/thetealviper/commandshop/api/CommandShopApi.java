@@ -30,6 +30,10 @@ public interface CommandShopApi extends Plugin {
 
     Map<Material, Price> getSellPrices();
 
+    List<Material> getBuyableMaterials();
+
+    List<Material> getSellableMaterials();
+
     Price getBuyPrice(Material material);
 
     Price getSellPrice(Material material);

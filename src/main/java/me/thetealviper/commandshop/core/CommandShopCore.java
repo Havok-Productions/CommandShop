@@ -50,9 +50,9 @@ import me.thetealviper.commandshop.model.ShopStat;
 import me.thetealviper.commandshop.platform.DynamicReloadSupport;
 
 public abstract class CommandShopCore extends JavaPlugin implements CommandShopApi {
-    private final Map<Material, Price> buyPrices = new ConcurrentHashMap<>();
-    private final Map<Material, Price> sellPrices = new ConcurrentHashMap<>();
-    private final Map<String, Material> aliases = new ConcurrentHashMap<>();
+    private volatile Map<Material, Price> buyPrices = new ConcurrentHashMap<>();
+    private volatile Map<Material, Price> sellPrices = new ConcurrentHashMap<>();
+    private volatile Map<String, Material> aliases = new ConcurrentHashMap<>();
     private final Map<String, PluginCommand> commandCache = new ConcurrentHashMap<>();
     private final Object statsLock = new Object();
     private final DecimalFormat moneyFormat = new DecimalFormat("#,##0.00");
@@ -225,12 +225,13 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     }
 
     private void loadAliases() {
-        aliases.clear();
+        Map<String, Material> loadedAliases = new ConcurrentHashMap<>();
         for (Material material : Material.values()) {
-            aliases.put(material.name().toLowerCase(Locale.ROOT), material);
+            loadedAliases.put(material.name().toLowerCase(Locale.ROOT), material);
         }
         ConfigurationSection section = getConfig().getConfigurationSection("Aliases");
         if (section == null) {
+            aliases = loadedAliases;
             return;
         }
         for (String parentName : section.getKeys(false)) {
@@ -240,16 +241,19 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 continue;
             }
             for (String alias : section.getStringList(parentName)) {
-                aliases.put(alias.toLowerCase(Locale.ROOT), parent);
+                loadedAliases.put(alias.toLowerCase(Locale.ROOT), parent);
             }
         }
+        aliases = loadedAliases;
     }
 
     private void loadPrices() {
-        buyPrices.clear();
-        sellPrices.clear();
-        loadPriceSection("Buy", buyPrices);
-        loadPriceSection("Sell", sellPrices);
+        Map<Material, Price> loadedBuyPrices = new ConcurrentHashMap<>();
+        Map<Material, Price> loadedSellPrices = new ConcurrentHashMap<>();
+        loadPriceSection("Buy", loadedBuyPrices);
+        loadPriceSection("Sell", loadedSellPrices);
+        buyPrices = loadedBuyPrices;
+        sellPrices = loadedSellPrices;
     }
 
     private void loadPriceSection(String path, Map<Material, Price> destination) {
@@ -1041,6 +1045,21 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
 
     public Map<Material, Price> getSellPrices() {
         return Collections.unmodifiableMap(sellPrices);
+    }
+
+    public List<Material> getBuyableMaterials() {
+        return sortedMaterials(buyPrices.keySet());
+    }
+
+    public List<Material> getSellableMaterials() {
+        return sortedMaterials(sellPrices.keySet());
+    }
+
+    private List<Material> sortedMaterials(Iterable<Material> materials) {
+        List<Material> result = new ArrayList<>();
+        materials.forEach(result::add);
+        result.sort(Comparator.comparing(Material::name));
+        return Collections.unmodifiableList(result);
     }
 
     public Price getBuyPrice(Material material) {

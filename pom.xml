@@ -6,7 +6,7 @@
 
     <groupId>me.thetealviper</groupId>
     <artifactId>CommandShop</artifactId>
-    <version>27.1.0-folia</version>
+    <version>27.1.1-folia</version>
     <packaging>jar</packaging>
     <name>CommandShop</name>
 
