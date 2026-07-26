@@ -84,9 +84,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         statsWriter = createStatsWriter();
         migrateLegacyFiles();
         saveDefaultConfig();
-        reloadConfig();
-        getConfig().options().copyDefaults(true);
-        saveConfig();
+        loadCommandShopConfig();
 
         if (!setupEconomy()) {
             getLogger().severe("Vault has no registered economy provider. CommandShop is disabled.");
@@ -244,6 +242,18 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         return loaded;
     }
 
+    private void loadCommandShopConfig() {
+        reloadConfig();
+        if (!getConfig().contains("Flag_Potential_Shop_Abusers", true)
+                && getConfig().contains("Abuse_Detection.Enabled", true)) {
+            getConfig().set("Flag_Potential_Shop_Abusers",
+                    getConfig().getBoolean("Abuse_Detection.Enabled", true));
+            getConfig().set("Abuse_Detection.Enabled", null);
+        }
+        getConfig().options().copyDefaults(true);
+        saveConfig();
+    }
+
     private void loadAliases() {
         Map<String, Material> loadedAliases = new ConcurrentHashMap<>();
         for (Material material : Material.values()) {
@@ -389,8 +399,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     private void scheduleRuntimeReload(CommandSender sender) {
         getServer().getGlobalRegionScheduler().execute(this, () -> {
             try {
-                reloadConfig();
-                getConfig().options().copyDefaults(true);
+                loadCommandShopConfig();
 
                 prices = loadYaml(pricesFile);
                 messages = loadMessages();
@@ -1040,7 +1049,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
 
     private AbuseFlag updateAbuseWindow(Player player, String base, Material material,
             int amount, double money) {
-        if (!getConfig().getBoolean("Abuse_Detection.Enabled", true)
+        if (!getConfig().getBoolean("Flag_Potential_Shop_Abusers", true)
                 || player.hasPermission("commandshop.abuse.bypass")
                 || stats.getBoolean(base + ".Abuse.Flagged", false)) {
             return null;

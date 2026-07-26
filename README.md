@@ -89,7 +89,10 @@ GUIs until an administrator runs:
 ```
 
 Operators have `commandshop.notify` and `commandshop.abuse.bypass` by default.
-Thresholds are configured under `Abuse_Detection` in `config.yml`.
+Set `Flag_Potential_Shop_Abusers: false` in `config.yml` to disable automatic
+player flags and shop blocks. Thresholds remain configurable under
+`Abuse_Detection`. Existing `Abuse_Detection.Enabled` values are migrated to
+the new top-level setting automatically.
 
 ## Shared prices and availability
 

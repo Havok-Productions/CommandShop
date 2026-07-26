@@ -8,6 +8,10 @@
 Minimal_Sell_Autocomplete: true
 Recent_Purchase_Limit: 45
 
+# Set to false to disable automatic player shop-abuse flags and blocks.
+# Recipe and direct-price warnings remain notification-only.
+Flag_Potential_Shop_Abusers: true
+
 # Every /setprice and price-removal action is appended to
 # price-history.yml with its actor, timestamp, old value, and new value.
 Price_History:
@@ -21,7 +25,6 @@ Price_History:
 # an item with a $35 configured unit sell price is 285.71x and exceeds the
 # default 100x extreme threshold.
 Abuse_Detection:
-  Enabled: true
   Window_Minutes: 30
   Minimum_Item_Revenue: 5000.0
   Minimum_Revenue_To_Sale_Price_Ratio: 2.0
