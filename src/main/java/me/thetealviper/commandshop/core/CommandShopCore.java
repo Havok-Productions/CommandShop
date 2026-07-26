@@ -1378,11 +1378,11 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     }
 
     public Price getBuyPrice(Material material) {
-        return buyPrices.get(material);
+        return material == null ? null : buyPrices.get(material);
     }
 
     public Price getSellPrice(Material material) {
-        return sellPrices.get(material);
+        return material == null ? null : sellPrices.get(material);
     }
 
     public double getBalance(Player player) {

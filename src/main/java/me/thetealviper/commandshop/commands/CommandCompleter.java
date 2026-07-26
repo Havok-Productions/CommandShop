@@ -119,6 +119,9 @@ public final class CommandCompleter implements TabCompleter {
             if (name.equals("buy") || name.equals("sell")) {
                 Material material = plugin.resolveMaterial(args[0],
                         sender instanceof Player ? (Player) sender : null);
+                if (material == null) {
+                    return List.of();
+                }
                 Price price = name.equals("buy")
                         ? plugin.getBuyPrice(material) : plugin.getSellPrice(material);
                 if (price == null) {
