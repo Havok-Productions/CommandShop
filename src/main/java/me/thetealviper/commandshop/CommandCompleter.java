@@ -34,20 +34,34 @@ public final class CommandCompleter implements TabCompleter {
                 List<String> options = new ArrayList<>(List.of("inspect"));
                 if (sender.hasPermission("commandshop.admin")) {
                     options.add("reload");
+                    options.add("delete");
                 }
                 return matches(args[0], options);
             }
             if (name.equals("shop")) {
-                return matches(args[0], List.of("check"));
+                List<String> options = new ArrayList<>(List.of("check", "inspect"));
+                if (sender.hasPermission("commandshop.admin")) {
+                    options.add("remove");
+                }
+                return matches(args[0], options);
             }
             if (name.equals("setprice")) {
                 return matches(args[0], List.of("buy", "sell"));
             }
             if (name.equals("buy")) {
-                return matches(args[0], materialNames(plugin.getBuyPrices().keySet(), true));
+                List<String> options =
+                        materialNames(plugin.getBuyPrices().keySet(), true);
+                if (sender.hasPermission("commandshop.admin")) {
+                    options.add("remove");
+                }
+                return matches(args[0], options);
             }
             if (name.equals("sell")) {
-                return matches(args[0], sellMaterialNames(sender));
+                List<String> options = sellMaterialNames(sender);
+                if (sender.hasPermission("commandshop.admin")) {
+                    options.add("remove");
+                }
+                return matches(args[0], options);
             }
             if (name.equals("price")) {
                 Set<Material> materials = new LinkedHashSet<>(plugin.getBuyPrices().keySet());
@@ -56,9 +70,31 @@ public final class CommandCompleter implements TabCompleter {
             }
         }
         if (args.length == 2) {
-            if (name.equals("commandshop") && args[0].equalsIgnoreCase("inspect")
-                    || name.equals("shop") && args[0].equalsIgnoreCase("check")) {
+            if ((name.equals("commandshop") && args[0].equalsIgnoreCase("inspect"))
+                    || (name.equals("shop")
+                    && (args[0].equalsIgnoreCase("check")
+                    || args[0].equalsIgnoreCase("inspect")))) {
                 return matches(args[1], plugin.getKnownPlayerNames());
+            }
+            if (sender.hasPermission("commandshop.admin")
+                    && name.equals("commandshop")
+                    && args[0].equalsIgnoreCase("delete")
+                    || sender.hasPermission("commandshop.admin")
+                    && name.equals("shop")
+                    && args[0].equalsIgnoreCase("remove")) {
+                Set<Material> materials = new LinkedHashSet<>(plugin.getBuyPrices().keySet());
+                materials.addAll(plugin.getSellPrices().keySet());
+                return matches(args[1], materialNames(materials, sender instanceof Player));
+            }
+            if (sender.hasPermission("commandshop.admin")
+                    && name.equals("buy") && args[0].equalsIgnoreCase("remove")) {
+                return matches(args[1], materialNames(
+                        plugin.getBuyPrices().keySet(), sender instanceof Player));
+            }
+            if (sender.hasPermission("commandshop.admin")
+                    && name.equals("sell") && args[0].equalsIgnoreCase("remove")) {
+                return matches(args[1], materialNames(
+                        plugin.getSellPrices().keySet(), sender instanceof Player));
             }
             if (name.equals("setprice")) {
                 List<String> all = new ArrayList<>();

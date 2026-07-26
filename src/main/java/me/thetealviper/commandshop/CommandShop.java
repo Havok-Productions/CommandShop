@@ -296,10 +296,13 @@ public final class CommandShop extends JavaPlugin {
                 } else {
                     scheduleRuntimeReload(sender);
                 }
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("delete")) {
+                handleRemovePriceCommand(sender, args[1], true, true);
             } else if (args.length == 2 && args[0].equalsIgnoreCase("inspect")) {
                 inspect(sender, args[1]);
             } else {
-                sender.sendMessage(color("&e/commandshop <reload|inspect <username>>"));
+                sender.sendMessage(color(
+                        "&e/commandshop <reload|delete <item>|inspect <username>>"));
             }
             return true;
         }
@@ -310,20 +313,32 @@ public final class CommandShop extends JavaPlugin {
                 if (player != null) {
                     guiManager.openMain(player);
                 }
-            } else if (args.length == 2 && args[0].equalsIgnoreCase("check")) {
+            } else if (args.length == 2
+                    && (args[0].equalsIgnoreCase("check")
+                    || args[0].equalsIgnoreCase("inspect"))) {
                 inspect(sender, args[1]);
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                handleRemovePriceCommand(sender, args[1], true, true);
             } else {
-                sender.sendMessage(color("&e/shop [check <username>]"));
+                sender.sendMessage(color("&e/shop [inspect <username>|remove <item>]"));
             }
             return true;
         }
 
         if (name.equals("buy")) {
-            handleBuyCommand(sender, args);
+            if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                handleRemovePriceCommand(sender, args[1], true, false);
+            } else {
+                handleBuyCommand(sender, args);
+            }
             return true;
         }
         if (name.equals("sell")) {
-            handleSellCommand(sender, args);
+            if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                handleRemovePriceCommand(sender, args[1], false, true);
+            } else {
+                handleSellCommand(sender, args);
+            }
             return true;
         }
         if (name.equals("price")) {
@@ -566,16 +581,59 @@ public final class CommandShop extends JavaPlugin {
                 "amount", Integer.toString(amount)));
     }
 
-    private void removeExistingPriceEntry(String type, Material material) {
-        ConfigurationSection section = prices.getConfigurationSection(type);
-        if (section == null) {
+    private void handleRemovePriceCommand(CommandSender sender, String materialName,
+            boolean removeBuy, boolean removeSell) {
+        if (!sender.hasPermission("commandshop.admin")) {
+            send(sender, "Error_NoPermission", Map.of());
             return;
         }
+        Player player = sender instanceof Player ? (Player) sender : null;
+        Material material = resolveMaterial(materialName, player);
+        if (material == null || !material.isItem() || material.isAir()) {
+            send(sender, "Error_UnknownItem", Map.of());
+            return;
+        }
+
+        boolean removedBuy = false;
+        boolean removedSell = false;
+        if (removeBuy) {
+            removedBuy = removeExistingPriceEntry("Buy", material)
+                    | buyPrices.remove(material) != null;
+        }
+        if (removeSell) {
+            removedSell = removeExistingPriceEntry("Sell", material)
+                    | sellPrices.remove(material) != null;
+        }
+        if (!removedBuy && !removedSell) {
+            send(sender, "Remove_None", Map.of("item", displayName(material)));
+            return;
+        }
+
+        savePrices();
+        String messageKey;
+        if (removedBuy && removedSell) {
+            messageKey = "Remove_Both";
+        } else if (removedBuy) {
+            messageKey = "Remove_Buy";
+        } else {
+            messageKey = "Remove_Sell";
+        }
+        send(sender, messageKey, Map.of("item", displayName(material)));
+    }
+
+    private boolean removeExistingPriceEntry(String type, Material material) {
+        ConfigurationSection section = prices.getConfigurationSection(type);
+        if (section == null) {
+            return false;
+        }
+        boolean removed = false;
         for (String key : new ArrayList<>(section.getKeys(false))) {
             if (Material.matchMaterial(key) == material) {
                 prices.set(type + "." + key, null);
+                removed = true;
             }
         }
+        return removed;
     }
 
     private void savePrices() {
@@ -689,8 +747,12 @@ public final class CommandShop extends JavaPlugin {
             double earned = price.price() * (entry.getValue() / price.amount());
             recordTransaction(player, "Sell", entry.getKey(), entry.getValue(), earned);
         }
+        String soldItemName = quote.amounts().size() == 1
+                ? displayName(quote.amounts().keySet().iterator().next())
+                : "Mixed Items";
         send(player, "Sell_Success", Map.of(
                 "amount", Integer.toString(quote.totalItems()),
+                "item", soldItemName,
                 "price", formatMoney(quote.total())));
         return true;
     }
@@ -1008,12 +1070,34 @@ public final class CommandShop extends JavaPlugin {
     public void send(CommandSender sender, String key, Map<String, String> replacements) {
         String value = messages.getString(key, key);
         for (Map.Entry<String, String> replacement : replacements.entrySet()) {
-            value = value.replace("%" + replacement.getKey() + "%", replacement.getValue());
+            String replacementKey = replacement.getKey();
+            String replacementValue = replacement.getValue();
+            value = value.replace("%" + replacementKey + "%", replacementValue);
+            value = value.replace(
+                    "%scoreboardchatshop_" + replacementKey + "%", replacementValue);
+
+            if (replacementKey.equals("item")) {
+                value = value.replace(
+                        "%scoreboardchatshop_material%", replacementValue);
+                value = value.replace(
+                        "%scoreboardchatshop_basematerial%", replacementValue);
+            }
         }
+        value = normalizeLegacyMessageFormatting(value);
         if (sender instanceof Player && getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             value = PlaceholderAPI.setPlaceholders((Player) sender, value);
         }
         sender.sendMessage(color(messages.getString("Prefix", "") + value));
+    }
+
+    private String normalizeLegacyMessageFormatting(String value) {
+        value = value.replaceAll(
+                "&[><](?:LCH|RGB)#[0-9A-Fa-f]{6}", "");
+        value = value.replace("&??", "").replace("&?", "");
+        while (value.contains("$$")) {
+            value = value.replace("$$", "$");
+        }
+        return value;
     }
 
     public String color(String value) {

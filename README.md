@@ -8,6 +8,17 @@ A shop plugin that allows commands to be used, and supports an organized GUI.
 
 mvn clean install
 
+## Removing shop prices
+
+Administrators can remove one or both price directions:
+
+```
+/buy remove <item>
+/sell remove <item>
+/shop remove <item>
+/commandshop delete <item>
+```
+
 ## Reloading and PlugManX
 
 For routine `config.yml`, `messages.yml`, and `prices.db` changes, use:

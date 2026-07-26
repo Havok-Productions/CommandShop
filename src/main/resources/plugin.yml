@@ -10,8 +10,8 @@ softdepend: [PlaceholderAPI, PlugMan, PlugManX]
 
 commands:
   commandshop:
-    description: Open, reload, or inspect CommandShop
-    usage: /commandshop [reload|inspect <username>]
+    description: Open, reload, inspect, or delete CommandShop prices
+    usage: /commandshop [reload|delete <item>|inspect <username>]
     aliases: [cshop]
   shop-gui:
     description: Open the main shop GUI
@@ -24,13 +24,13 @@ commands:
     usage: /sell-gui
   shop:
     description: Open the shop or view legacy player shop statistics
-    usage: /shop [check <username>]
+    usage: /shop [inspect <username>|remove <item>]
   buy:
     description: Open the buy GUI or buy a priced item
-    usage: /buy [item] [amount|max]
+    usage: /buy [remove <item>|item [amount|max]]
   sell:
     description: Open the sell GUI or sell a priced item
-    usage: /sell [item] [amount|max]
+    usage: /sell [remove <item>|item [amount|max]]
   price:
     description: Display buy and sell prices
     usage: /price <item|hand> [amount]
