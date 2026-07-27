@@ -55,6 +55,8 @@ public interface CommandShopApi extends Plugin {
 
     void send(CommandSender sender, String key, Map<String, String> replacements);
 
+    void notifyOutstandingAbuseFlags(Player recipient);
+
     boolean purchase(Player player, Material material, int amount);
 
     SellQuote quoteSellable(Iterable<ItemStack> stacks);

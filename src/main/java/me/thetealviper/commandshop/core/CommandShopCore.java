@@ -47,6 +47,7 @@ import me.thetealviper.commandshop.integrations.CommandShopPlaceholderExpansion;
 import me.thetealviper.commandshop.model.Price;
 import me.thetealviper.commandshop.model.SellQuote;
 import me.thetealviper.commandshop.model.ShopStat;
+import me.thetealviper.commandshop.risk.AbuseNotificationListener;
 import me.thetealviper.commandshop.risk.SalesAbuseMonitor;
 import me.thetealviper.commandshop.shop.RecipeCatalog;
 
@@ -118,6 +119,8 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
 
         guiManager = new ShopGuiManager(this);
         getServer().getPluginManager().registerEvents(guiManager, this);
+        getServer().getPluginManager().registerEvents(
+                new AbuseNotificationListener(this), this);
 
         CommandCompleter completer = new CommandCompleter(this);
         for (String commandName : List.of("commandshop", "shop", "buy", "sell", "price", "setprice")) {
@@ -804,7 +807,8 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 + replaceMessageValues(messageTemplate(messageKey, replacements), replacements)));
         getLogger().warning(consoleMessage);
         for (Player recipient : getServer().getOnlinePlayers()) {
-            if (!recipient.hasPermission("commandshop.notify")) {
+            if (!recipient.isOp()
+                    || !recipient.hasPermission("commandshop.notify")) {
                 continue;
             }
             recipient.getScheduler().execute(this,
@@ -930,6 +934,10 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 Collections.unmodifiableMap(currentAmounts),
                 currentTotal, currentTotalItems);
 
+        if (flagAbusiveSaleAttempt(player, currentQuote, currentPrices)) {
+            return false;
+        }
+
         ItemStack[] before = cloneContents(player.getInventory().getStorageContents());
         for (Map.Entry<Material, Integer> entry : currentQuote.amounts().entrySet()) {
             removePlainMaterial(player, entry.getKey(), entry.getValue());
@@ -1011,7 +1019,6 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     }
 
     private void recordTransaction(Player player, String type, Material material, int amount, double money) {
-        AbuseFlag newFlag = null;
         String base = "Players." + player.getUniqueId();
         String path = base + "." + type + "." + material.name();
         synchronized (statsLock) {
@@ -1029,26 +1036,53 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 stats.set(base + ".RecentPurchases", recent);
             }
             if (type.equals("Sell")) {
-                newFlag = updateAbuseWindow(player, base, material, amount, money);
+                updateAbuseWindow(player, base, material, amount, money,
+                        AbuseWindowMode.COMPLETED_SALE);
             }
         }
         queueStatsSave();
-        if (newFlag != null) {
-            send(player, "Abuse_PlayerFlagged", Map.of());
-            notifyStaff("Abuse_StaffFlagged", Map.of(
-                    "player", player.getName(),
-                    "item", displayName(newFlag.material()),
-                    "revenue", formatMoney(newFlag.revenue()),
-                    "amount", Long.toString(newFlag.amount()),
-                    "sales_ratio", formatRatio(newFlag.revenueToSalePriceRatio()),
-                    "reason", formatTriggerReason(newFlag.triggerReason()),
-                    "profit_ratio", formatRatio(newFlag.profitRatio()),
-                    "minutes", Integer.toString(newFlag.windowMinutes())));
+    }
+
+    private boolean flagAbusiveSaleAttempt(Player player, SellQuote quote,
+            Map<Material, Price> priceSnapshot) {
+        AbuseFlag newFlag = null;
+        String base = "Players." + player.getUniqueId();
+        synchronized (statsLock) {
+            for (Map.Entry<Material, Integer> entry : quote.amounts().entrySet()) {
+                Price price = priceSnapshot.get(entry.getKey());
+                double attemptedPayout = price.price()
+                        * (entry.getValue() / price.amount());
+                newFlag = updateAbuseWindow(player, base, entry.getKey(),
+                        entry.getValue(), attemptedPayout, AbuseWindowMode.ATTEMPT_CHECK);
+                if (newFlag != null) {
+                    stats.set(base + ".Name", player.getName());
+                    break;
+                }
+            }
         }
+        if (newFlag == null) {
+            return false;
+        }
+        queueStatsSave();
+        announceDeniedAbusiveSale(player, newFlag);
+        return true;
+    }
+
+    private void announceDeniedAbusiveSale(Player player, AbuseFlag newFlag) {
+        send(player, "Abuse_PlayerSaleDenied", Map.of());
+        notifyStaff("Abuse_StaffSaleDenied", Map.of(
+                "player", player.getName(),
+                "item", displayName(newFlag.material()),
+                "revenue", formatMoney(newFlag.revenue()),
+                "amount", Long.toString(newFlag.amount()),
+                "sales_ratio", formatRatio(newFlag.revenueToSalePriceRatio()),
+                "reason", formatTriggerReason(newFlag.triggerReason()),
+                "profit_ratio", formatRatio(newFlag.profitRatio()),
+                "minutes", Integer.toString(newFlag.windowMinutes())));
     }
 
     private AbuseFlag updateAbuseWindow(Player player, String base, Material material,
-            int amount, double money) {
+            int amount, double money, AbuseWindowMode mode) {
         if (!getConfig().getBoolean("Flag_Potential_Shop_Abusers", true)
                 || player.hasPermission("commandshop.abuse.bypass")
                 || stats.getBoolean(base + ".Abuse.Flagged", false)) {
@@ -1076,11 +1110,18 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         SalesAbuseMonitor.Evaluation evaluation = abuseMonitor.evaluate(
                 stats.getStringList(path), now, amount, money,
                 configuredSellUnitPrice, profitRatio, thresholds);
-        stats.set(path, evaluation.persistedEntries());
         if (!evaluation.shouldFlag()) {
+            if (mode == AbuseWindowMode.COMPLETED_SALE) {
+                stats.set(path, evaluation.persistedEntries());
+            }
+            return null;
+        }
+        if (mode == AbuseWindowMode.COMPLETED_SALE) {
+            stats.set(path, evaluation.persistedEntries());
             return null;
         }
 
+        stats.set(path, evaluation.persistedEntries());
         stats.set(base + ".Abuse.Flagged", true);
         stats.set(base + ".Abuse.Flagged_At", Instant.now().toString());
         stats.set(base + ".Abuse.Material", material.name());
@@ -1207,8 +1248,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             flaggedProfitRatio = stats.getDouble(base + ".Abuse.Profit_Ratio",
                     stats.getDouble(base + ".Abuse.Sale_Ratio"));
             String storedReason = stats.getString(base + ".Abuse.Trigger_Reason", "unknown");
-            flaggedReason = storedReason.toLowerCase(Locale.ROOT)
-                    .replace('_', ' ');
+            flaggedReason = formatStoredTriggerReason(storedReason);
         }
         send(sender, "Inspect_Header", Map.of("player", display));
         if (flagged) {
@@ -1389,6 +1429,52 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         return economy.getBalance(player);
     }
 
+    @Override
+    public void notifyOutstandingAbuseFlags(Player recipient) {
+        if (recipient == null || !recipient.isOp()
+                || !recipient.hasPermission("commandshop.notify")) {
+            return;
+        }
+        List<OutstandingAbuseFlag> outstanding = new ArrayList<>();
+        synchronized (statsLock) {
+            if (stats == null) {
+                return;
+            }
+            ConfigurationSection players = stats.getConfigurationSection("Players");
+            if (players == null) {
+                return;
+            }
+            for (String playerKey : players.getKeys(false)) {
+                String base = "Players." + playerKey;
+                if (!stats.getBoolean(base + ".Abuse.Flagged", false)) {
+                    continue;
+                }
+                Material material = Material.matchMaterial(
+                        stats.getString(base + ".Abuse.Material", "BARRIER"));
+                outstanding.add(new OutstandingAbuseFlag(
+                        stats.getString(base + ".Name", playerKey),
+                        material == null ? Material.BARRIER : material,
+                        stats.getDouble(base + ".Abuse.Window_Revenue"),
+                        formatStoredTriggerReason(stats.getString(
+                                base + ".Abuse.Trigger_Reason", "unknown"))));
+            }
+        }
+        if (outstanding.isEmpty()) {
+            return;
+        }
+        outstanding.sort(Comparator.comparing(
+                OutstandingAbuseFlag::playerName, String.CASE_INSENSITIVE_ORDER));
+        send(recipient, "Abuse_ReminderHeader", Map.of(
+                "count", Integer.toString(outstanding.size())));
+        for (OutstandingAbuseFlag flag : outstanding) {
+            send(recipient, "Abuse_ReminderLine", Map.of(
+                    "player", flag.playerName(),
+                    "item", displayName(flag.material()),
+                    "revenue", formatMoney(flag.revenue()),
+                    "reason", flag.reason()));
+        }
+    }
+
     public String formatMoney(double value) {
         String formatted;
         synchronized (moneyFormat) {
@@ -1461,6 +1547,15 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         return value;
     }
 
+    private String formatStoredTriggerReason(String storedReason) {
+        try {
+            return formatTriggerReason(SalesAbuseMonitor.TriggerReason.valueOf(
+                    storedReason.toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException exception) {
+            return storedReason.toLowerCase(Locale.ROOT).replace('_', ' ');
+        }
+    }
+
     private Player requirePlayer(CommandSender sender) {
         if (!(sender instanceof Player)) {
             send(sender, "Error_PlayerOnly", Map.of());
@@ -1475,6 +1570,15 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             return null;
         }
         return player;
+    }
+
+    private enum AbuseWindowMode {
+        ATTEMPT_CHECK,
+        COMPLETED_SALE
+    }
+
+    private record OutstandingAbuseFlag(
+            String playerName, Material material, double revenue, String reason) {
     }
 
     private record AbuseFlag(Material material, long amount, double revenue,

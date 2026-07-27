@@ -1,4 +1,4 @@
-VERSION: 5
+VERSION: 6
 Prefix: "&8[&6CommandShop&8] &r"
 Error_NoPermission: "&cYou do not have permission to do that."
 Error_PlayerOnly: "&cThat command can only be used by a player."
@@ -39,6 +39,10 @@ Risk_DirectArbitrage: "&cPrice warning: %item% sells for %sale_value% each but c
 Risk_CraftingArbitrage: "&cRecipe warning: %source% creates %item% with a sell value of %sale_value% from known ingredients costing %cost% (%ratio%x return). This is notification-only; no price was changed."
 Abuse_PlayerFlagged: "&cYour concentrated shop sales crossed the configured abuse thresholds. You have been flagged and cannot use the shop until an administrator reviews it."
 Abuse_StaffFlagged: "&cAbuse alert: %player% was blocked after selling %amount%x %item% for %revenue% within %minutes% minutes (%sales_ratio%x configured unit sale value; %profit_ratio%x acquisition return). Trigger: %reason%."
+Abuse_PlayerSaleDenied: "&cThis sale triggered an abuse flag and was cancelled. You received no money and no items were removed. Contact an administrator."
+Abuse_StaffSaleDenied: "&cAbuse alert: %player%'s attempted %item% sale was cancelled before item or money transfer. The rolling window including this attempt was %amount% items and %revenue% within %minutes% minutes (%sales_ratio%x configured unit sale value; %profit_ratio%x acquisition return). Trigger: %reason%."
+Abuse_ReminderHeader: "&cThere are %count% players currently flagged for possible shop abuse:"
+Abuse_ReminderLine: "&e- %player%: %item%, %revenue% rolling-window value. Trigger: %reason%."
 Unflag_Success: "&a%player% can use CommandShop again. Their rolling sales window was cleared."
 Unflag_NotFlagged: "&e%player% is not currently flagged."
 Unflag_NotFound: "&eNo recorded CommandShop player named %player% was found."

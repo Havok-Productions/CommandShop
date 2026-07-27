@@ -79,14 +79,21 @@ There is no fixed item-count requirement. This keeps ordinary high-value sales
 from triggering while still catching a low-cost item that suddenly produces
 an enormous amount of money.
 
-A newly flagged player receives an explanation, staff with
+A newly flagged player receives an explanation, online server operators with
 `commandshop.notify` and the server console receive the trigger and evidence,
-and the flag is saved in `stats.db`. The player cannot buy, sell, or open shop
-GUIs until an administrator runs:
+and the flag is saved in `stats.db`. The sale that crosses a threshold is
+cancelled before inventory or economy changes, so the player keeps the items
+and receives no money. The player cannot buy, sell, or open shop GUIs until an
+administrator runs:
 
 ```
 /commandshop unflag <username>
 ```
+
+Each time an operator with `commandshop.notify` joins, CommandShop lists every
+flagged player still awaiting review. Non-operators never receive alerts even
+if another plugin grants them the notification permission. Unflagged players
+disappear from the list.
 
 Operators have `commandshop.notify` and `commandshop.abuse.bypass` by default.
 Set `Flag_Potential_Shop_Abusers: false` in `config.yml` to disable automatic
