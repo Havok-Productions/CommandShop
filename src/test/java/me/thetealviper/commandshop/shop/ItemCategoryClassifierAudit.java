@@ -23,16 +23,33 @@ public final class ItemCategoryClassifierAudit {
         expect(Material.COPPER_BLOCK, ItemCategoryClassifier.Category.ORES);
         expect(Material.EXPOSED_COPPER, ItemCategoryClassifier.Category.ORES);
         expect(Material.WAXED_OXIDIZED_COPPER, ItemCategoryClassifier.Category.ORES);
+        expect(Material.AMETHYST_SHARD, ItemCategoryClassifier.Category.ORES);
+        expect(Material.AMETHYST_CLUSTER, ItemCategoryClassifier.Category.ORES);
+        expect(Material.CLAY, ItemCategoryClassifier.Category.ORES);
+        expect(Material.CLAY_BALL, ItemCategoryClassifier.Category.ORES);
 
         expect(Material.CUT_COPPER_STAIRS, ItemCategoryClassifier.Category.MATERIALS);
         expect(Material.MUD_BRICKS, ItemCategoryClassifier.Category.MATERIALS);
         expect(Material.MUD_BRICK_STAIRS, ItemCategoryClassifier.Category.MATERIALS);
         expect(Material.OAK_LOG, ItemCategoryClassifier.Category.MATERIALS);
-        expect(Material.CRAFTING_TABLE, ItemCategoryClassifier.Category.MATERIALS);
+        expect(Material.OAK_STAIRS, ItemCategoryClassifier.Category.MATERIALS);
+        expect(Material.ANDESITE, ItemCategoryClassifier.Category.MATERIALS);
+        expect(Material.ICE, ItemCategoryClassifier.Category.MATERIALS);
 
         expect(Material.ARMOR_STAND, ItemCategoryClassifier.Category.OTHER);
         expect(Material.FIREWORK_ROCKET, ItemCategoryClassifier.Category.OTHER);
         expect(Material.DIAMOND_SWORD, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.CRAFTING_TABLE, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.FURNACE, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.CHEST, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.HOPPER, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.OAK_BUTTON, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.OAK_DOOR, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.STICK, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.PAPER, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.RED_DYE, ItemCategoryClassifier.Category.OTHER);
+        expect(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE,
+                ItemCategoryClassifier.Category.OTHER);
 
         Map<ItemCategoryClassifier.Category, Integer> totals =
                 new EnumMap<>(ItemCategoryClassifier.Category.class);

@@ -41,6 +41,7 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import me.thetealviper.commandshop.api.CommandShopApi;
+import me.thetealviper.commandshop.commands.CommandCaseListener;
 import me.thetealviper.commandshop.commands.CommandCompleter;
 import me.thetealviper.commandshop.gui.ShopGuiManager;
 import me.thetealviper.commandshop.integrations.CommandShopPlaceholderExpansion;
@@ -121,6 +122,8 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         getServer().getPluginManager().registerEvents(guiManager, this);
         getServer().getPluginManager().registerEvents(
                 new AbuseNotificationListener(this), this);
+        getServer().getPluginManager().registerEvents(
+                new CommandCaseListener(), this);
 
         CommandCompleter completer = new CommandCompleter(this);
         for (String commandName : List.of("commandshop", "shop", "buy", "sell", "price", "setprice")) {

@@ -50,7 +50,6 @@ public final class ShopGuiManager implements Listener {
 
     public void openMain(Player player) {
         MainHolder holder = new MainHolder();
-        fill(holder.inventory);
         holder.inventory.setItem(11, item(Material.EMERALD,
                 "&a&lBuy Items",
                 "&7Browse organized categories.",
@@ -74,7 +73,6 @@ public final class ShopGuiManager implements Listener {
 
     public void openBuyCategories(Player player) {
         BuyCategoriesHolder holder = new BuyCategoriesHolder();
-        fill(holder.inventory);
         int[] slots = {10, 11, 12, 13, 14};
         BuyCategory[] categories = BuyCategory.values();
         for (int index = 0; index < categories.length; index++) {
@@ -92,9 +90,6 @@ public final class ShopGuiManager implements Listener {
 
     public void openSell(Player player) {
         SellInputHolder holder = new SellInputHolder();
-        for (int slot = 45; slot < 54; slot++) {
-            holder.inventory.setItem(slot, filler());
-        }
         holder.inventory.setItem(45, item(Material.ARROW, "&cBack", "&7Return to the shop menu."));
         holder.inventory.setItem(47, item(Material.BOOK, "&6How to sell",
                 "&71. Drag items into the upper tray.",
@@ -117,7 +112,6 @@ public final class ShopGuiManager implements Listener {
         int maxPage = Math.max(0, (entries.size() - 1) / PAGE_SIZE);
         int page = Math.max(0, Math.min(requestedPage, maxPage));
         CategoryHolder holder = new CategoryHolder(category, page, entries);
-        fill(holder.inventory);
         int start = page * PAGE_SIZE;
         for (int slot = 0; slot < PAGE_SIZE && start + slot < entries.size(); slot++) {
             BuyEntry entry = entries.get(start + slot);
@@ -152,7 +146,6 @@ public final class ShopGuiManager implements Listener {
                 requestedVariantPage, entry.materials.size(), PAGE_SIZE);
         VariantsHolder holder = new VariantsHolder(
                 category, categoryPage, entry, variantPage);
-        fill(holder.inventory);
         int start = variantPage * PAGE_SIZE;
         for (int slot = 0; slot < PAGE_SIZE && start + slot < entry.materials.size(); slot++) {
             Material material = entry.materials.get(start + slot);
@@ -186,7 +179,6 @@ public final class ShopGuiManager implements Listener {
         }
         DetailHolder holder = new DetailHolder(
                 category, categoryPage, parentEntry, variantPage, material);
-        fill(holder.inventory);
         double unitPrice = price.price() / price.amount();
         holder.inventory.setItem(13, item(material, "&6&l" + plugin.displayName(material),
                 "&7Price per item: &f" + plugin.formatMoney(unitPrice),
@@ -213,7 +205,6 @@ public final class ShopGuiManager implements Listener {
 
     private void openSellConfirmation(Player player, SellQuote quote, String source) {
         SellConfirmHolder holder = new SellConfirmHolder(quote);
-        fill(holder.inventory);
         List<String> summary = new ArrayList<>();
         summary.add("&7Source: &f" + source);
         summary.add("&7Items sold: &f" + quote.totalItems());
@@ -571,17 +562,6 @@ public final class ShopGuiManager implements Listener {
         }
     }
 
-    private void fill(Inventory inventory) {
-        ItemStack filler = filler();
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, filler);
-        }
-    }
-
-    private ItemStack filler() {
-        return item(Material.BLACK_STAINED_GLASS_PANE, " ");
-    }
-
     private ItemStack item(Material material, String displayName, String... loreLines) {
         ItemStack stack = new ItemStack(material == null ? Material.BARRIER : material);
         ItemMeta meta = stack.getItemMeta();
@@ -607,11 +587,11 @@ public final class ShopGuiManager implements Listener {
         FOOD("&aFood & Crops", Material.GOLDEN_CARROT,
                 "&7Food, seeds, crops, and farm goods."),
         MATERIALS("&6Materials", Material.BRICKS,
-                "&7Building blocks and crafting materials."),
+                "&7Building blocks and construction variants."),
         ORES("&bOres", Material.IRON_PICKAXE,
-                "&7Ores, minerals, and storage blocks."),
+                "&7Ores, mined minerals, clay, and storage blocks."),
         OTHER("&dOther", Material.CHEST,
-                "&7Tools, gear, utility, and miscellaneous items."),
+                "&7Crafting stations, utility, gear, and other items."),
         RECENT("&eRecent Purchases", Material.CLOCK,
                 "&7Your most recently purchased items.");
 

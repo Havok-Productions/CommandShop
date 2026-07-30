@@ -15,11 +15,25 @@ See `docs/ARCHITECTURE.md` for package ownership and dependency rules.
 ## Automatic item categories
 
 The buy GUI classifies every available Bukkit material. Food, crops, seeds,
-ores, mineral resources, and mineral storage blocks have dedicated categories.
-All other placeable blocks (including mud bricks and cut copper variants) and
-common crafting ingredients are Materials. Tools, armor, vehicles, utility
-items, and other functional leftovers appear in Other. `Category_Overrides` in
-`config.yml` always takes priority over automatic classification.
+ores, mined mineral resources (including amethyst and clay), and mineral
+storage blocks have dedicated categories. Non-functional placeable building
+blocks (including andesite, ice, mud bricks, stairs, logs, and cut copper
+variants) are Materials. Crafting stations, interactable or utility blocks,
+crafting components, tools, armor, vehicles, and other functional items appear
+in Other. `Category_Overrides` in `config.yml` always takes priority over
+automatic classification.
+
+Shop menus leave unused slots truly empty instead of filling them with
+decorative glass panes. Click and drag protection is enforced by the inventory
+handlers, so the same layouts work cleanly through Bedrock bridges such as
+Geyser/Floodgate without maintaining a separate item or price list.
+
+## Command capitalization
+
+Command roots are normalized with a case-insensitive, anchored matcher before
+dispatch. `/shop`, `/Shop`, `/SHOP`, mixed-case direct GUI commands, and the
+`commandshop:` namespace behave identically. Arguments retain their original
+case, and similarly named commands owned by other plugins are never rewritten.
 
 ## Removing shop prices
 
