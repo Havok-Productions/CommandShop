@@ -59,7 +59,8 @@ CommandShop writes two audit files in `plugins/CommandShop`:
   refreshed after startup and by `/commandshop reload` so recipes registered
   by other plugins are included.
 - `price-history.yml` records the actor, timestamp, direction, material,
-  previous price, and new price for every price set or removal command.
+  previous price, and new price for every price set, removal, and automatic
+  abuse delisting.
 
 The audit recursively calculates the cheapest known acquisition cost from
 direct buy prices and registered recipes. It warns online players with
@@ -97,17 +98,30 @@ A newly flagged player receives an explanation, online server operators with
 `commandshop.notify` and the server console receive the trigger and evidence,
 and the flag is saved in `stats.db`. The sale that crosses a threshold is
 cancelled before inventory or economy changes, so the player keeps the items
-and receives no money. The player cannot buy, sell, or open shop GUIs until an
-administrator runs:
+and receives no money. The involved material is immediately removed from both
+buying and selling in the shared price database. The player cannot buy, sell,
+or open shop GUIs until an administrator runs:
 
 ```
 /commandshop unflag <username>
 ```
 
+The delisted material is also recorded as an unresolved alert in `stats.db`.
 Each time an operator with `commandshop.notify` joins, CommandShop lists every
-flagged player still awaiting review. Non-operators never receive alerts even
-if another plugin grants them the notification permission. Unflagged players
-disappear from the list.
+flagged player and every quarantined material still awaiting review. A config
+reload or manually restoring an old `prices.db` entry cannot relist an active
+quarantine. After reviewing and correcting the item, an operator clears its
+alert with:
+
+```
+/commandshop resolve <item>
+```
+
+Resolving does not restore the old prices. The operator must deliberately use
+`/setprice` afterward if the item should return to either shop. Unflagging the
+player and resolving the item are intentionally separate review decisions.
+Non-operators never receive these login alerts even if another plugin grants
+them the notification permission.
 
 Operators have `commandshop.notify` and `commandshop.abuse.bypass` by default.
 Set `Flag_Potential_Shop_Abusers: false` in `config.yml` to disable automatic

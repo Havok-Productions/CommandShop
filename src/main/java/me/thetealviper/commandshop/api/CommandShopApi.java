@@ -33,6 +33,8 @@ public interface CommandShopApi extends Plugin {
 
     List<Material> getSellableMaterials();
 
+    List<Material> getQuarantinedMaterials();
+
     Price getBuyPrice(Material material);
 
     Price getSellPrice(Material material);

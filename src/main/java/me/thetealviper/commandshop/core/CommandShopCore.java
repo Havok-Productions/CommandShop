@@ -57,6 +57,7 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     private volatile Map<Material, Price> sellPrices = new ConcurrentHashMap<>();
     private volatile Map<String, Material> aliases = new ConcurrentHashMap<>();
     private final Object statsLock = new Object();
+    private final Object priceLock = new Object();
     private final Object priceHistoryLock = new Object();
     private final Object priceAuditLock = new Object();
     private final Map<String, String> activePriceWarnings = new ConcurrentHashMap<>();
@@ -284,12 +285,38 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
     }
 
     private void loadPrices() {
-        Map<Material, Price> loadedBuyPrices = new ConcurrentHashMap<>();
-        Map<Material, Price> loadedSellPrices = new ConcurrentHashMap<>();
-        loadPriceSection("Buy", loadedBuyPrices);
-        loadPriceSection("Sell", loadedSellPrices);
-        buyPrices = loadedBuyPrices;
-        sellPrices = loadedSellPrices;
+        synchronized (priceLock) {
+            Map<Material, Price> loadedBuyPrices = new ConcurrentHashMap<>();
+            Map<Material, Price> loadedSellPrices = new ConcurrentHashMap<>();
+            loadPriceSection("Buy", loadedBuyPrices);
+            loadPriceSection("Sell", loadedSellPrices);
+            excludeQuarantinedMaterials(loadedBuyPrices, loadedSellPrices);
+            buyPrices = loadedBuyPrices;
+            sellPrices = loadedSellPrices;
+        }
+    }
+
+    private void excludeQuarantinedMaterials(Map<Material, Price> loadedBuyPrices,
+            Map<Material, Price> loadedSellPrices) {
+        synchronized (statsLock) {
+            if (stats == null) {
+                return;
+            }
+            ConfigurationSection alerts = stats.getConfigurationSection("ScamAlerts");
+            if (alerts == null) {
+                return;
+            }
+            for (String materialName : alerts.getKeys(false)) {
+                if (!alerts.getBoolean(materialName + ".Active", false)) {
+                    continue;
+                }
+                Material material = Material.matchMaterial(materialName);
+                if (material != null) {
+                    loadedBuyPrices.remove(material);
+                    loadedSellPrices.remove(material);
+                }
+            }
+        }
     }
 
     private void loadPriceSection(String path, Map<Material, Price> destination) {
@@ -346,13 +373,15 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 }
             } else if (args.length == 2 && args[0].equalsIgnoreCase("unflag")) {
                 handleUnflagCommand(sender, args[1]);
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("resolve")) {
+                handleResolveItemAlertCommand(sender, args[1]);
             } else if (args.length == 2 && args[0].equalsIgnoreCase("delete")) {
                 handleRemovePriceCommand(sender, args[1], true, true);
             } else if (args.length == 2 && args[0].equalsIgnoreCase("inspect")) {
                 inspect(sender, args[1]);
             } else {
                 sender.sendMessage(color(
-                        "&e/commandshop <reload|delete <item>|inspect <username>|unflag <username>>"));
+                        "&e/commandshop <reload|delete <item>|inspect <username>|unflag <username>|resolve <item>>"));
             }
             return true;
         }
@@ -407,11 +436,14 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             try {
                 loadCommandShopConfig();
 
-                prices = loadYaml(pricesFile);
+                YamlConfiguration reloadedPrices = loadYaml(pricesFile);
+                synchronized (priceLock) {
+                    prices = reloadedPrices;
+                    loadPrices();
+                }
                 messages = loadMessages();
                 priceHistory = loadYaml(priceHistoryFile);
                 loadAliases();
-                loadPrices();
                 recipeCatalog.refresh(recipesFile);
                 auditPrices();
 
@@ -611,13 +643,29 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             send(sender, "Error_Number", Map.of());
             return;
         }
+        if (value > 0.0D && isItemQuarantined(material)) {
+            send(sender, "SetPrice_Quarantined", Map.of(
+                    "item", displayName(material),
+                    "material", material.name().toLowerCase(Locale.ROOT)));
+            return;
+        }
         String type = args[0].equalsIgnoreCase("buy") ? "Buy" : "Sell";
-        Price previous = type.equals("Buy") ? buyPrices.get(material) : sellPrices.get(material);
-        Map<Material, Price> destination = type.equals("Buy") ? buyPrices : sellPrices;
-        removeExistingPriceEntry(type, material);
-        if (value == 0.0D) {
-            destination.remove(material);
+        Price previous;
+        Price current = value == 0.0D ? null : new Price(value, amount);
+        synchronized (priceLock) {
+            previous = type.equals("Buy") ? buyPrices.get(material) : sellPrices.get(material);
+            Map<Material, Price> destination = type.equals("Buy") ? buyPrices : sellPrices;
+            removeExistingPriceEntry(type, material);
+            if (current == null) {
+                destination.remove(material);
+            } else {
+                prices.set(type + "." + material.name() + ".price", current.price());
+                prices.set(type + "." + material.name() + ".amount", current.amount());
+                destination.put(material, current);
+            }
             savePrices();
+        }
+        if (value == 0.0D) {
             recordPriceChange(sender, "REMOVE", type, material, previous, null);
             auditPrices();
             send(sender, "SetPrice_Removed", Map.of(
@@ -625,11 +673,6 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                     "item", displayName(material)));
             return;
         }
-        prices.set(type + "." + material.name() + ".price", value);
-        prices.set(type + "." + material.name() + ".amount", amount);
-        destination.put(material, new Price(value, amount));
-        savePrices();
-        Price current = new Price(value, amount);
         recordPriceChange(sender, "SET", type, material, previous, current);
         auditPrices();
         send(sender, "SetPrice_Success", Map.of(
@@ -652,20 +695,27 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
             return;
         }
 
-        Price previousBuy = buyPrices.get(material);
-        Price previousSell = sellPrices.get(material);
+        Price previousBuy;
+        Price previousSell;
         boolean removedBuy = false;
         boolean removedSell = false;
-        if (removeBuy) {
-            removedBuy = removeExistingPriceEntry("Buy", material)
-                    | buyPrices.remove(material) != null;
-            if (removedBuy) recordPriceChange(sender, "REMOVE", "Buy", material, previousBuy, null);
+        synchronized (priceLock) {
+            previousBuy = buyPrices.get(material);
+            previousSell = sellPrices.get(material);
+            if (removeBuy) {
+                removedBuy = removeExistingPriceEntry("Buy", material)
+                        | buyPrices.remove(material) != null;
+            }
+            if (removeSell) {
+                removedSell = removeExistingPriceEntry("Sell", material)
+                        | sellPrices.remove(material) != null;
+            }
+            if (removedBuy || removedSell) {
+                savePrices();
+            }
         }
-        if (removeSell) {
-            removedSell = removeExistingPriceEntry("Sell", material)
-                    | sellPrices.remove(material) != null;
-            if (removedSell) recordPriceChange(sender, "REMOVE", "Sell", material, previousSell, null);
-        }
+        if (removedBuy) recordPriceChange(sender, "REMOVE", "Buy", material, previousBuy, null);
+        if (removedSell) recordPriceChange(sender, "REMOVE", "Sell", material, previousSell, null);
         boolean twoSidedRemoval = removeBuy && removeSell;
         if (!removedBuy && !removedSell && !twoSidedRemoval) {
             send(sender, "Remove_None", Map.of("item", displayName(material)));
@@ -673,7 +723,6 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         }
 
         if (removedBuy || removedSell) {
-            savePrices();
             auditPrices();
         }
         String messageKey;
@@ -1066,9 +1115,67 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         if (newFlag == null) {
             return false;
         }
+        quarantineAbuseItem(player, newFlag);
         queueStatsSave();
         announceDeniedAbusiveSale(player, newFlag);
         return true;
+    }
+
+    private void quarantineAbuseItem(Player player, AbuseFlag flag) {
+        Material material = flag.material();
+        Price previousBuy;
+        Price previousSell;
+        boolean pricesChanged;
+        synchronized (priceLock) {
+            previousBuy = buyPrices.get(material);
+            previousSell = sellPrices.get(material);
+            boolean removedBuy = removeExistingPriceEntry("Buy", material)
+                    | buyPrices.remove(material) != null;
+            boolean removedSell = removeExistingPriceEntry("Sell", material)
+                    | sellPrices.remove(material) != null;
+            pricesChanged = removedBuy || removedSell;
+            if (pricesChanged) {
+                savePrices();
+            }
+        }
+
+        if (previousBuy != null) {
+            recordPriceChange(player, "ABUSE_DELIST", "Buy",
+                    material, previousBuy, null);
+        }
+        if (previousSell != null) {
+            recordPriceChange(player, "ABUSE_DELIST", "Sell",
+                    material, previousSell, null);
+        }
+
+        synchronized (statsLock) {
+            String base = "ScamAlerts." + material.name();
+            stats.set(base + ".Active", true);
+            stats.set(base + ".Material", material.name());
+            stats.set(base + ".Triggered_At", Instant.now().toString());
+            stats.set(base + ".Player_Name", player.getName());
+            stats.set(base + ".Player_UUID", player.getUniqueId().toString());
+            stats.set(base + ".Window_Revenue", flag.revenue());
+            stats.set(base + ".Window_Amount", flag.amount());
+            stats.set(base + ".Trigger_Reason", flag.triggerReason().name());
+            stats.set(base + ".Revenue_To_Sale_Price_Ratio",
+                    flag.revenueToSalePriceRatio());
+            stats.set(base + ".Profit_Ratio", flag.profitRatio());
+            stats.set(base + ".Window_Minutes", flag.windowMinutes());
+            storeQuarantinedPrice(base + ".Previous_Buy", previousBuy);
+            storeQuarantinedPrice(base + ".Previous_Sell", previousSell);
+        }
+        if (pricesChanged) {
+            auditPrices();
+        }
+    }
+
+    private void storeQuarantinedPrice(String path, Price price) {
+        stats.set(path, null);
+        if (price != null) {
+            stats.set(path + ".price", price.price());
+            stats.set(path + ".amount", price.amount());
+        }
     }
 
     private void announceDeniedAbusiveSale(Player player, AbuseFlag newFlag) {
@@ -1186,6 +1293,44 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         }
         queueStatsSave();
         send(sender, "Unflag_Success", Map.of("player", display));
+    }
+
+    private boolean isItemQuarantined(Material material) {
+        synchronized (statsLock) {
+            return stats != null && stats.getBoolean(
+                    "ScamAlerts." + material.name() + ".Active", false);
+        }
+    }
+
+    private void handleResolveItemAlertCommand(CommandSender sender, String materialName) {
+        if (!sender.hasPermission("commandshop.admin")) {
+            send(sender, "Error_NoPermission", Map.of());
+            return;
+        }
+        Player player = sender instanceof Player ? (Player) sender : null;
+        Material material = resolveMaterial(materialName, player);
+        if (material == null || !material.isItem() || material.isAir()) {
+            send(sender, "Error_UnknownItem", Map.of());
+            return;
+        }
+        boolean resolved;
+        synchronized (statsLock) {
+            String base = "ScamAlerts." + material.name();
+            resolved = stats.getBoolean(base + ".Active", false);
+            if (resolved) {
+                stats.set(base + ".Active", false);
+                stats.set(base + ".Resolved_At", Instant.now().toString());
+                stats.set(base + ".Resolved_By", sender.getName());
+            }
+        }
+        if (!resolved) {
+            send(sender, "Abuse_ItemNotFound", Map.of(
+                    "item", displayName(material)));
+            return;
+        }
+        queueStatsSave();
+        send(sender, "Abuse_ItemResolved", Map.of(
+                "item", displayName(material)));
     }
 
     private void queueStatsSave() {
@@ -1413,6 +1558,30 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
         return sortedMaterials(sellPrices.keySet());
     }
 
+    public List<Material> getQuarantinedMaterials() {
+        List<Material> result = new ArrayList<>();
+        synchronized (statsLock) {
+            if (stats == null) {
+                return List.of();
+            }
+            ConfigurationSection alerts = stats.getConfigurationSection("ScamAlerts");
+            if (alerts == null) {
+                return List.of();
+            }
+            for (String materialKey : alerts.getKeys(false)) {
+                if (!alerts.getBoolean(materialKey + ".Active", false)) {
+                    continue;
+                }
+                Material material = Material.matchMaterial(materialKey);
+                if (material != null && material.isItem() && !material.isAir()) {
+                    result.add(material);
+                }
+            }
+        }
+        result.sort(Comparator.comparing(Material::name));
+        return Collections.unmodifiableList(result);
+    }
+
     private List<Material> sortedMaterials(Iterable<Material> materials) {
         List<Material> result = new ArrayList<>();
         materials.forEach(result::add);
@@ -1438,43 +1607,76 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
                 || !recipient.hasPermission("commandshop.notify")) {
             return;
         }
-        List<OutstandingAbuseFlag> outstanding = new ArrayList<>();
+        List<OutstandingAbuseFlag> outstandingPlayers = new ArrayList<>();
+        List<OutstandingItemAlert> outstandingItems = new ArrayList<>();
         synchronized (statsLock) {
             if (stats == null) {
                 return;
             }
             ConfigurationSection players = stats.getConfigurationSection("Players");
-            if (players == null) {
-                return;
-            }
-            for (String playerKey : players.getKeys(false)) {
-                String base = "Players." + playerKey;
-                if (!stats.getBoolean(base + ".Abuse.Flagged", false)) {
-                    continue;
+            if (players != null) {
+                for (String playerKey : players.getKeys(false)) {
+                    String base = "Players." + playerKey;
+                    if (!stats.getBoolean(base + ".Abuse.Flagged", false)) {
+                        continue;
+                    }
+                    Material material = Material.matchMaterial(
+                            stats.getString(base + ".Abuse.Material", "BARRIER"));
+                    outstandingPlayers.add(new OutstandingAbuseFlag(
+                            stats.getString(base + ".Name", playerKey),
+                            material == null ? Material.BARRIER : material,
+                            stats.getDouble(base + ".Abuse.Window_Revenue"),
+                            formatStoredTriggerReason(stats.getString(
+                                    base + ".Abuse.Trigger_Reason", "unknown"))));
                 }
-                Material material = Material.matchMaterial(
-                        stats.getString(base + ".Abuse.Material", "BARRIER"));
-                outstanding.add(new OutstandingAbuseFlag(
-                        stats.getString(base + ".Name", playerKey),
-                        material == null ? Material.BARRIER : material,
-                        stats.getDouble(base + ".Abuse.Window_Revenue"),
-                        formatStoredTriggerReason(stats.getString(
-                                base + ".Abuse.Trigger_Reason", "unknown"))));
+            }
+            ConfigurationSection alerts = stats.getConfigurationSection("ScamAlerts");
+            if (alerts != null) {
+                for (String materialKey : alerts.getKeys(false)) {
+                    String base = "ScamAlerts." + materialKey;
+                    if (!stats.getBoolean(base + ".Active", false)) {
+                        continue;
+                    }
+                    Material material = Material.matchMaterial(
+                            stats.getString(base + ".Material", materialKey));
+                    if (material == null) {
+                        continue;
+                    }
+                    outstandingItems.add(new OutstandingItemAlert(
+                            material,
+                            stats.getString(base + ".Player_Name", "unknown player"),
+                            stats.getDouble(base + ".Window_Revenue"),
+                            formatStoredTriggerReason(stats.getString(
+                                    base + ".Trigger_Reason", "unknown"))));
+                }
             }
         }
-        if (outstanding.isEmpty()) {
-            return;
+        if (!outstandingPlayers.isEmpty()) {
+            outstandingPlayers.sort(Comparator.comparing(
+                    OutstandingAbuseFlag::playerName, String.CASE_INSENSITIVE_ORDER));
+            send(recipient, "Abuse_ReminderHeader", Map.of(
+                    "count", Integer.toString(outstandingPlayers.size())));
+            for (OutstandingAbuseFlag flag : outstandingPlayers) {
+                send(recipient, "Abuse_ReminderLine", Map.of(
+                        "player", flag.playerName(),
+                        "item", displayName(flag.material()),
+                        "revenue", formatMoney(flag.revenue()),
+                        "reason", flag.reason()));
+            }
         }
-        outstanding.sort(Comparator.comparing(
-                OutstandingAbuseFlag::playerName, String.CASE_INSENSITIVE_ORDER));
-        send(recipient, "Abuse_ReminderHeader", Map.of(
-                "count", Integer.toString(outstanding.size())));
-        for (OutstandingAbuseFlag flag : outstanding) {
-            send(recipient, "Abuse_ReminderLine", Map.of(
-                    "player", flag.playerName(),
-                    "item", displayName(flag.material()),
-                    "revenue", formatMoney(flag.revenue()),
-                    "reason", flag.reason()));
+        if (!outstandingItems.isEmpty()) {
+            outstandingItems.sort(Comparator.comparing(
+                    alert -> alert.material().name()));
+            send(recipient, "Abuse_ItemReminderHeader", Map.of(
+                    "count", Integer.toString(outstandingItems.size())));
+            for (OutstandingItemAlert alert : outstandingItems) {
+                send(recipient, "Abuse_ItemReminderLine", Map.of(
+                        "player", alert.playerName(),
+                        "item", displayName(alert.material()),
+                        "material", alert.material().name().toLowerCase(Locale.ROOT),
+                        "revenue", formatMoney(alert.revenue()),
+                        "reason", alert.reason()));
+            }
         }
     }
 
@@ -1582,6 +1784,10 @@ public abstract class CommandShopCore extends JavaPlugin implements CommandShopA
 
     private record OutstandingAbuseFlag(
             String playerName, Material material, double revenue, String reason) {
+    }
+
+    private record OutstandingItemAlert(
+            Material material, String playerName, double revenue, String reason) {
     }
 
     private record AbuseFlag(Material material, long amount, double revenue,
